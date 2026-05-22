@@ -22,7 +22,7 @@ def preia_toate_meciurile_lumii():
         {"id": "soccer_sweden_allsvenskan", "nume": "🇸🇪 Allsvenskan - Suedia"},
         {"id": "soccer_denmark_superliga", "nume": "🇩🇰 Superliga - Danemarca"},
         {"id": "soccer_greece_super_league", "nume": "🇬🇷 Super League - Grecia"},
-        {"id": "soccer_finland_veikkausliiga", "nume": "🇫🇮 Veikkausliiga - Finlanda"}
+        {"id": "soccer_finland_veikkausliiga", "nume": "🇫🇮 Veikkausliiga - Finlanda"},
         {"id": "soccer_uefa_champions_league", "nume": "🇪🇺 Champions League"},
         {"id": "soccer_uefa_europa_league","nume": "🇪🇺 Europa League"},
         {"id": "soccer_uefa_europa_conference_league","nume": "🇪🇺 Conference League"},
