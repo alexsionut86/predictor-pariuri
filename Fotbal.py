@@ -8,7 +8,7 @@ def preia_toate_meciurile_lumii():
     """
     Descarcă automat meciurile și cotele reale din cele 11 ligi selectate.
     """
-    # 🔴 PUNE CHEIA TA REALĂ AICI:
+    # 🔴 Cheia ta API salvată corect:
     API_KEY = "2429b4002790df20061f98437e5c97b2"
     
     ligi_configurate = [
@@ -52,10 +52,10 @@ def preia_toate_meciurile_lumii():
                             except Exception:
                                 pass
 
-                        # Culegere cote
+                        # Culegere cote - CORECTAT AICI!
                         c1, cX, c2 = 2.00, 3.20, 3.00
                         if meci.get('bookmakers'):
-                            piete = m_piete = meci['bookmakers'][0].get('markets', [])
+                            piete = meci['bookmakers'][0].get('markets', [])
                             if piete:
                                 outcomes = piete[0].get('outcomes', [])
                                 for out in outcomes:
@@ -146,13 +146,12 @@ if meciuri:
     st.subheader("📋 Panou General - Alege varianta care ți se potrivește:")
     st.dataframe(df, use_container_width=True, hide_index=True)
     
-    # --- SECȚIUNEA VERDE DE JOS (REVENIRE) ---
+    # --- SECȚIUNEA VERDE DE JOS ---
     st.write("---")
     st.subheader("🔥 RECOMANDĂRI AUTOMATE BILET (Filtru Verde - Siguranță Maximă):")
     
     if not meciuri_verzi.empty:
         for idx, row in meciuri_verzi.iterrows():
-            # Afișează frumos cu verde meciurile sigure și sugestiile lor
             st.success(f"⏰ **[{row['Dată / Oră']}]** {row['Meci']} ({row['Competiție']}) ➔ Baza: **{row['🛡️ Varianta Safe (Prudent)']}** | Pentru cotă mai mare: **{row['⚡ Varianta Medium (Echilibrat)']}** (Cota: {row['Cota 1']})")
     else:
         st.info("În acest moment, niciun meci din cele 11 ligi nu are o favorită certă sub cota 1.65 pentru filtrul verde.")
