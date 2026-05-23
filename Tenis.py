@@ -15,9 +15,11 @@ API_KEY = "2429b4002790df20061f98437e5c97b2"
 
 # Configurare categorii Tenis
 categorii_tenis = [
-    {"id": "tennis_atp_all", "nume": "🎾 Toate Turneele ATP (Masculin)"},
-    {"id": "tennis_wta_all", "nume": "🎾 Toate Turneele WTA (Feminin)"},
-    {"id": "tennis_grand_slams", "nume": "🏆 Turnee de Mare Șlem (Grand Slams)"}
+    {"id": "tennis_france_open", "nume": "🏆 Roland Garros (Openul Francez)"},
+    {"id": "tennis_atp_lyon", "nume": "🎾 ATP Lyon"},
+    {"id": "tennis_atp_geneva", "nume": "🎾 ATP Geneva"},
+    {"id": "tennis_wta_strasbourg", "nume": "🎾 WTA Strasbourg"},
+    {"id": "tennis_wta_rabat", "nume": "🎾 WTA Rabat"}
 ]
 
 def adu_meciuri_tenis(sport_key):
