@@ -26,7 +26,7 @@ def adu_meciuri_tenis(sport_key):
         "apiKey": API_KEY,
         "regions": "eu",
         "markets": "h2h",
-        "bookmakers": "marathonbet,pinnacle,williamhill",
+        "bookmakers": "unibet,bwin,betclic,1xbet,pinnacle",
         "oddsFormat": "decimal"
     }
     
