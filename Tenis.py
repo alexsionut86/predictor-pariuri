@@ -90,7 +90,7 @@ def converteste_ora(ora_utc_str):
 
 # Interfața aplicației
 st.sidebar.header("⚙️ Setări Filtrare")
-prag_ev = st.sidebar.slider("Prag Expected Value (EV %)", min_value=-20.0, max_value=20.0, value=0.0, step=0.5)
+prag_ev = st.sidebar.slider("Prag Expected Value pentru Alerte (EV %)", min_value=-5.0, max_value=15.0, value=1.0, step=0.5)
 
 toate_meciurile = []
 
@@ -125,11 +125,17 @@ with st.spinner("Se scanează circuitele ATP și WTA..."):
                 ev_1 = (prob_mat_1 * cota_1 - 1) * 100
                 ev_2 = (prob_mat_2 * cota_2 - 1) * 100
                 
-                recomandare = "Echilibrat"
+                # --- NOUA LOGICĂ DIRECTĂ DE PRONOSTIC ---
                 if ev_1 >= prag_ev:
-                    recomandare = f"🔥 Valoare pe {home_team}"
+                    recomandare = f"🚨 TOP VALOARE: Pune pe {home_team}!"
                 elif ev_2 >= prag_ev:
-                    recomandare = f"🔥 Valoare pe {away_team}"
+                    recomandare = f"🚨 TOP VALOARE: Pune pe {away_team}!"
+                else:
+                    # Dacă meciul e echilibrat, robotul alege matematic cine are șanse mai mari
+                    if prob_mat_1 > prob_mat_2:
+                        recomandare = f"✅ De pus: {home_team} (Favorit)"
+                    else:
+                        recomandare = f"✅ De pus: {away_team} (Favorit)"
                 
                 toate_meciurile.append({
                     "Competiție": cat["nume"],
@@ -140,12 +146,12 @@ with st.spinner("Se scanează circuitele ATP și WTA..."):
                     "Cota J2": cota_2,
                     "Șansă J1 (%)": f"{prob_mat_1*100:.1f}%",
                     "Șansă J2 (%)": f"{prob_mat_2*100:.1f}%",
-                    "Pronostic": recomandare
+                    "Ce punem? (Pronostic)": recomandare
                 })
 
 if toate_meciurile:
     df = pd.DataFrame(toate_meciurile)
-    st.success(f"S-au găsit {len(df)} meciuri listate la agenții!")
+    st.success(f"S-au găsit {len(df)} meciuri analizate!")
     st.dataframe(df.style.set_properties(**{'text-align': 'center'}), use_container_width=True)
 else:
     st.info("Momentan nu sunt meciuri active deschise la pariuri în turneele din listă.")
