@@ -12,17 +12,32 @@ def preia_toate_meciurile_lumii():
     API_KEY = "2429b4002790df20061f98437e5c97b2"
     
     ligi_configurate = [
-        {"id": "soccer_epl", "nume": "🏴󠁧󠁢󠁥󠁮󠁧󠁿 Premier League - Anglia"},
+        {"id": "soccer_epl", "nume": "Premier League - Anglia"},
         {"id": "soccer_spain_la_liga", "nume": "🇪🇸 La Liga - Spania"},
         {"id": "soccer_italy_serie_a", "nume": "🇮🇹 Serie A - Italia"},
         {"id": "soccer_germany_bundesliga", "nume": "🇩🇪 Bundesliga - Germania"},
         {"id": "soccer_france_ligue_one", "nume": "🇫🇷 Ligue 1 - Franța"},
-        {"id": "soccer_romania_liga_1", "nume": "🇷🇴 Liga 1 - România"},
         {"id": "soccer_austria_bundesliga", "nume": "🇦🇹 Bundesliga - Austria"},
         {"id": "soccer_sweden_allsvenskan", "nume": "🇸🇪 Allsvenskan - Suedia"},
         {"id": "soccer_denmark_superliga", "nume": "🇩🇰 Superliga - Danemarca"},
         {"id": "soccer_greece_super_league", "nume": "🇬🇷 Super League - Grecia"},
-        {"id": "soccer_finland_veikkausliiga", "nume": "🇫🇮 Veikkausliiga - Finlanda"}
+        {"id": "soccer_finland_veikkausliiga", "nume": "🇫🇮 Veikkausliiga - Finlanda"},
+        {"id": "soccer_belgium_first_div", "nume": "Belgium First Div"},
+        {"id": "soccer_brazil_campeonato", "nume": "Brazil Série A"},
+        {"id": "soccer_china_superleague", "nume": "Super League - China"},
+        {"id": "soccer_england_league1", "nume": "League 1"},
+        {"id": "soccer_usa_mls", "nume": "MLS"},
+        {"id": "soccer_turkey_super_league", "nume": "Turkey Super League"},
+        {"id": "soccer_spl", "nume": "Premiership - Scotland"},
+        {"id": "soccer_spain_segunda_division", "nume": "La Liga 2 - Spain"},
+        {"id": "soccer_portugal_primeira_liga", "nume": "Primeira Liga - Portugal"},
+        {"id": "soccer_italy_serie_b", "nume": "Serie B - Italy"},
+        {"id": "soccer_fifa_world_cup", "nume": "FIFA World Cup"},
+        {"id": "soccer_uefa_europa_conference_league", "nume": "UEFA Europa Conference League"},
+        {"id": "soccer_uefa_champs_league", "nume": "UEFA Champions League"},
+        {"id": "soccer_uefa_europa_league", "nume": "UEFA Europa League"},
+        {"id": "soccer_conmebol_copa_libertadores", "nume": "Copa Libertadores"},
+        {"id": "soccer_conmebol_copa_sudamericana", "nume": "Copa Sudamericana"},
     ]
     
     lista_meciuri = []
