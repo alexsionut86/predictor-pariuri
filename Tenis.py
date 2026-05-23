@@ -90,11 +90,11 @@ def converteste_ora(ora_utc_str):
 
 # Interfața aplicației
 st.sidebar.header("⚙️ Setări Filtrare")
-prag_ev = st.sidebar.slider("Prag Expected Value pentru Alerte (EV %)", min_value=-5.0, max_value=15.0, value=1.0, step=0.5)
+mod_pariere = st.sidebar.selectbox("Ce tip de pronostic vrei să vezi?", ["Semn Final (1 sau 2)", "Game-uri & Handicap"])
 
 toate_meciurile = []
 
-with st.spinner("Se scanează circuitele ATP și WTA..."):
+with st.spinner("Se scanează meciurile..."):
     for cat in categorii_tenis:
         date_meciuri = adu_meciuri_tenis(cat["id"])
         
@@ -122,31 +122,35 @@ with st.spinner("Se scanează circuitele ATP și WTA..."):
                 prob_mat_1 = (1 / cota_1) / marja
                 prob_mat_2 = (1 / cota_2) / marja
                 
-                ev_1 = (prob_mat_1 * cota_1 - 1) * 100
-                ev_2 = (prob_mat_2 * cota_2 - 1) * 100
-                
-                # --- NOUA LOGICĂ DIRECTĂ DE PRONOSTIC ---
-                if ev_1 >= prag_ev:
-                    recomandare = f"🚨 TOP VALOARE: Pune pe {home_team}!"
-                elif ev_2 >= prag_ev:
-                    recomandare = f"🚨 TOP VALOARE: Pune pe {away_team}!"
-                else:
-                    # Dacă meciul e echilibrat, robotul alege matematic cine are șanse mai mari
+                # --- ALGORITM DE CALCUL PENTRU GAME-URI ȘI SEMNE ---
+                if mod_pariere == "Semn Final (1 sau 2)":
                     if prob_mat_1 > prob_mat_2:
-                        recomandare = f"✅ De pus: {home_team} (Favorit)"
+                        pronostic_final = f"👉 Pune: 1 (Victorie {home_team})"
                     else:
-                        recomandare = f"✅ De pus: {away_team} (Favorit)"
+                        pronostic_final = f"👉 Pune: 2 (Victorie {away_team})"
+                else:
+                    # Dacă meciul e foarte dezechilibrat (ex: Sabalenka cota 1.05)
+                    if cota_1 < 1.20 or cota_2 < 1.20:
+                        pronostic_final = "📉 Sub 19.5 Game-uri (Meci rapid)"
+                    # Dacă meciul e relativ echilibrat (cote între 1.50 și 2.50)
+                    elif 1.50 <= cota_1 <= 2.50 and 1.50 <= cota_2 <= 2.50:
+                        pronostic_final = "📈 Peste 21.5 Game-uri (Meci strâns)"
+                    # Structură intermediară pentru handicap
+                    elif cota_1 < cota_2:
+                        pronostic_final = f"🎾 Handicap: -3.5 Game-uri {home_team}"
+                    else:
+                        pronostic_final = f"🎾 Handicap: -3.5 Game-uri {away_team}"
                 
                 toate_meciurile.append({
                     "Competiție": cat["nume"],
                     "Dată & Oră RO": commence_time,
-                    "Jucător 1": home_team,
-                    "Jucător 2": away_team,
-                    "Cota J1": cota_1,
-                    "Cota J2": cota_2,
-                    "Șansă J1 (%)": f"{prob_mat_1*100:.1f}%",
-                    "Șansă J2 (%)": f"{prob_mat_2*100:.1f}%",
-                    "Ce punem? (Pronostic)": recomandare
+                    "Jucător 1 (Gazde)": home_team,
+                    "Jucător 2 (Oaspeți)": away_team,
+                    "Cota 1": cota_1,
+                    "Cota 2": cota_2,
+                    "Șansă 1 (%)": f"{prob_mat_1*100:.1f}%",
+                    "Șansă 2 (%)": f"{prob_mat_2*100:.1f}%",
+                    "🔥 RECOMANDARE BILET": pronostic_final
                 })
 
 if toate_meciurile:
@@ -154,4 +158,4 @@ if toate_meciurile:
     st.success(f"S-au găsit {len(df)} meciuri analizate!")
     st.dataframe(df.style.set_properties(**{'text-align': 'center'}), use_container_width=True)
 else:
-    st.info("Momentan nu sunt meciuri active deschise la pariuri în turneele din listă.")
+    st.info("Momentan nu sunt meciuri active deschise la pariuri.")
