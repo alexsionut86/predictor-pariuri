@@ -15,7 +15,6 @@ def preia_toate_meciurile_lumii():
         {"id": "soccer_australia_aleague", "nume": "A-League"},
         {"id": "soccer_japan_j_league","nume": "J League"},
         {"id": "soccer_korea_kleague1","nume": "K League 1"},
-        {"id": "soccer_korea_kleague2","nume": "K League 2"},
         
     ]
     
