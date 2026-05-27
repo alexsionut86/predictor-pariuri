@@ -18,6 +18,7 @@ def preia_toate_meciurile_lumii():
         {"id": "soccer_finland_veikkausliiga", "nume": "Veikkausliiga - Finland"},
         {"id": "soccer_norway_eliteserien", "nume": "Eliteserien - Norway"},
         {"id": "soccer_china_superleague", "nume": "Super League - China"},
+        {"id": "soccer_uefa_champs_league", "nume": "UEFA Champions League"},
     ]
     
     lista_meciuri = []
