@@ -12,7 +12,8 @@ def preia_toate_meciurile_lumii():
     API_KEY = "2429b4002790df20061f98437e5c97b2"
     
     ligi_configurate = [
-        {"id": "soccer_uefa_europa_conference_league", "nume": "UEFA Europa Conference League"},      
+        {"id": "soccer_sweden_allsvenskan", "nume": "Allsvenskan - Sweden"},      
+        {"id": "soccer_sweden_superettan", "nume": "Superettan - Sweden"},
     ]
     
     lista_meciuri = []
