@@ -15,8 +15,9 @@ def preia_toate_meciurile_lumii():
         {"id": "soccer_sweden_allsvenskan", "nume": "Allsvenskan - Sweden"},      
         {"id": "soccer_sweden_superettan", "nume": "Superettan - Sweden"},
         {"id": "soccer_spain_segunda_division", "nume": "soccer_spain_segunda_division"},
-        {"id": "soccer_conmebol_copa_libertadores", "nume": "Copa Libertadores"},
-        {"id": "soccer_conmebol_copa_sudamericana", "nume": "Copa Sudamericana"},
+        {"id": "soccer_finland_veikkausliiga", "nume": "Veikkausliiga - Finland"},
+        {"id": "soccer_norway_eliteserien", "nume": "Eliteserien - Norway"},
+        {"id": "soccer_china_superleague", "nume": "Super League - China"},
     ]
     
     lista_meciuri = []
