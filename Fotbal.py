@@ -14,6 +14,9 @@ def preia_toate_meciurile_lumii():
     ligi_configurate = [
         {"id": "soccer_sweden_allsvenskan", "nume": "Allsvenskan - Sweden"},      
         {"id": "soccer_sweden_superettan", "nume": "Superettan - Sweden"},
+        {"id": "soccer_spain_segunda_division", "nume": "soccer_spain_segunda_division"},
+        {"id": "soccer_conmebol_copa_libertadores", "nume": "Copa Libertadores"},
+        {"id": "soccer_conmebol_copa_sudamericana", "nume": "Copa Sudamericana"},
     ]
     
     lista_meciuri = []
