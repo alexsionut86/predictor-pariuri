@@ -1,18 +1,25 @@
 import streamlit as st
+import pandas as pd
+import io
 
-# Configurare pagină optimizată special pentru ecranele de mobil
-st.set_page_config(page_title="Calculator Fotbal VIP", layout="wide", page_icon="⚽")
+# Configurare specială pentru ecrane de mobil
+st.set_page_config(page_title="Fotbal VIP + Excel", layout="wide", page_icon="⚽")
 
-st.title("⚽ Algoritm Fotbal VIP")
-st.write("Modifică cotele și vezi instant pronosticurile, direct pe telefon.")
+st.title("⚽ Algoritm Fotbal VIP + Export Excel")
+st.write("Introdu meciurile rând pe rând de pe telefon. Acestea se vor salva în lista de mai jos, de unde poți descărca registrul Excel.")
 
 st.write("---")
 
-# --- INTRODUCERE DATE DIRECTĂ (FĂRĂ BUTON BLOCK) ---
+# Inițializăm lista de meciuri în memoria Streamlit dacă nu există deja
+if "lista_meciuri" not in st.session_state:
+    st.session_state.lista_meciuri = []
+
+# --- SECȚIUNE ADĂUGARE MECI ---
+st.subheader("➕ Adaugă un meci nou")
+
 meci_nume = st.text_input("Nume Meci (ex: FCSB vs Rapid):", "FCSB vs Rapid")
 liga_nume = st.text_input("Competiție / Ligă (ex: Superliga):", "Superliga")
 
-st.write("### 📉 Introduceți Cotele:")
 col1, col2, col3 = st.columns(3)
 with col1:
     c1 = st.number_input("Cotă 1 (Gazde)", min_value=1.01, value=1.50, step=0.01, format="%.2f")
@@ -20,27 +27,74 @@ with col2:
     cX = st.number_input("Cotă X (Egal)", min_value=1.01, value=3.80, step=0.01, format="%.2f")
 with col3:
     c2 = st.number_input("Cotă 2 (Oaspeți)", min_value=1.01, value=5.50, step=0.01, format="%.2f")
-    
+
+# Buton mare pe mobil pentru a salva meciul în tabel
+if st.button("📥 SALVEAZĂ MECIUL ÎN LISTĂ", use_container_width=True):
+    # Aplicăm algoritmul pe loc pentru a salva verdictele direct în tabel
+    if c1 <= 1.65:
+        verdict = "🟩 FAVORIT CLAR"
+        safe = "Șansă dublă 1X"
+        medium = "⚽ Gol în Prima Repriză (Peste 0.5)"
+        risk = "1 & Peste 2.5 Goluri"
+    elif 1.65 < c1 <= 2.30:
+        verdict = "🟨 MECI ECHILIBRAT"
+        safe = "Interval Goluri 1-4"
+        medium = "⚽ Gol în 1R SAU Ambele marchează (GG)"
+        risk = "X final (Egalitate)"
+    else:
+        verdict = "🟥 OUTSIDER / HAZARD"
+        safe = "Peste 1.5 Goluri"
+        medium = "Șansă dublă X2"
+        risk = "2 Solist"
+
+    # Adăugăm datele în starea aplicației
+    st.session_state.lista_meciuri.append({
+        "Meci": meci_nume,
+        "Ligă": liga_nume,
+        "Cota 1": f"{c1:.2f}",
+        "Cota X": f"{cX:.2f}",
+        "Cota 2": f"{c2:.2f}",
+        "Verdict Risc": verdict,
+        "🛡️ Varianta Safe": safe,
+        "⚡ Varianta Medium": medium,
+        "🔥 Varianta Risk": risk
+    })
+    st.success(f"✅ Meciul '{meci_nume}' a fost adăugat jos în tabel!")
+
 st.write("---")
 
-# --- REZULTATELE SE AFIȘEAZĂ INSTANT AICI ---
-st.markdown(f"### 📊 Rezultat Analiză Live: **{meci_nume}** ({liga_nume})")
+# --- SECȚIUNE LISTĂ ȘI EXPORT ---
+st.subheader("📊 Meciurile tale salvate")
 
-# Algoritmul matematic de filtrare pe baza Cotei 1
-if c1 <= 1.65:
-    st.success("🟩 **VERDICT: FAVORIT CLAR**")
-    st.info("🛡️ **Varianta Safe (Siguranță):**\n\n👉 **Șansă dublă 1X** (Asigurat în caz de egalitate)")
-    st.warning("⚡ **Varianta Medium (Recomandată):**\n\n👉 **⚽ Gol în Prima Repriză (Peste 0.5 goluri în 1R)**")
-    st.error("🔥 **Varianta Risk (Cotă Mare):**\n\n👉 **1 Solist & Peste 2.5 Goluri în meci**")
+if st.session_state.lista_meciuri:
+    # Transformăm lista în DataFrame pentru afișare și export
+    df = pd.DataFrame(st.session_state.lista_meciuri)
     
-elif 1.65 < c1 <= 2.30:
-    st.success("🟨 **VERDICT: MECI ECHILIBRAT**")
-    st.info("🛡️ **Varianta Safe (Siguranță):**\n\n👉 **Interval Goluri 1-4 în tot meciul**")
-    st.warning("⚡ **Varianta Medium (Recomandată):**\n\n👉 **⚽ Gol în Prima Repriză (Peste 0.5 în 1R) SAU Ambele marchează (GG)**")
-    st.error("🔥 **Varianta Risk (Cotă Mare):**\n\n👉 **X final (Egalitate la sfârșitul celor 90 de minute)**")
+    # Afișăm tabelul pe ecranul mobilului
+    st.dataframe(df, use_container_width=True)
     
+    # Buton de ștergere istoric
+    if st.button("🗑️ Șterge toate meciurile", use_container_width=False):
+        st.session_state.lista_meciuri = []
+        st.rerun()
+        
+    st.write("")
+    
+    # --- LOGICA DE GENERARE FIȘIER EXCEL DIRECT PE MOBIL ---
+    buffer = io.BytesIO()
+    with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Predictii VIP')
+        
+    # Pregătim datele binare pentru descărcare
+    date_excel = buffer.getvalue()
+    
+    # Butonul magic de download Excel (apare colorat și mare pe telefon)
+    st.download_button(
+        label="🟢 DESCARCĂ FIȘIERUL EXCEL (.xlsx)",
+        data=date_excel,
+        file_name="Predictii_Fotbal_VIP.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True
+    )
 else:
-    st.success("🟥 **VERDICT: OUTSIDER / HAZARD**")
-    st.info("🛡️ **Varianta Safe (Siguranță):**\n\n👉 **Peste 1.5 Goluri în tot meciul**")
-    st.warning("⚡ **Varianta Medium (Recomandată):**\n\n👉 **Șansă dublă X2** (Oaspeții nu pierd meciul)")
-    st.error("🔥 **Varianta Risk (Cotă Mare):**\n\n👉 **2 Solist** (Victorie curată a echipei oaspete)")
+    st.info("Nu ai adăugat niciun meci încă. Completează cotele de sus și apasă pe butonul de salvare.")
