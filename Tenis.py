@@ -5,52 +5,20 @@ from datetime import datetime
 import pytz
 
 # Configurare pagină Streamlit
-st.set_page_config(page_title="Predictor Tenis Pro", layout="wide", page_icon="🎾")
+st.set_page_config(page_title="Predictor Tenis VIP", layout="wide", page_icon="🎾")
 
-st.title("🎾 Predictor Tenis: Recomandări Directe pentru Bilet")
-st.write("Algoritmul transformă cotele în pronosticuri clare (Semne, Game-uri sau Handicap).")
+st.title("🎾 Predictor Tenis PRO: Filtru Anti-Capcane (Roland Garros)")
+st.write("Algoritmul elimină cotele periculoase și caută valoare (Value Bets) bazat pe tipul de turneu (ATP/WTA).")
 
 # Cheia ta API
 API_KEY = "2429b4002790df20061f98437e5c97b2"
 
-# Lista oficială de turnee
+# Lista de turnee active
 categorii_tenis = [
-    {"id": "tennis_atp_aus_open_singles", "nume": "🏆 Australian Open (Masculin)"},
-    {"id": "tennis_wta_aus_open_singles", "nume": "🏆 Australian Open (Feminin)"},
-    {"id": "tennis_atp_french_open", "nume": "🏆 Roland Garros (Masculin)"},
-    {"id": "tennis_wta_french_open", "nume": "🏆 Roland Garros (Feminin)"},
-    {"id": "tennis_atp_wimbledon", "nume": "🏆 Wimbledon (Masculin)"},
-    {"id": "tennis_wta_wimbledon", "nume": "🏆 Wimbledon (Feminin)"},
-    {"id": "tennis_atp_us_open", "nume": "🏆 US Open (Masculin)"},
-    {"id": "tennis_wta_us_open", "nume": "🏆 US Open (Feminin)"},
-    {"id": "tennis_atp_barcelona_open", "nume": "🎾 ATP Barcelona"},
-    {"id": "tennis_atp_canadian_open", "nume": "🎾 ATP Canadian Open"},
-    {"id": "tennis_atp_china_open", "nume": "🎾 ATP China Open"},
-    {"id": "tennis_atp_cincinnati_open", "nume": "🎾 ATP Cincinnati"},
-    {"id": "tennis_atp_dubai", "nume": "🎾 ATP Dubai"},
-    {"id": "tennis_atp_hamburg_open", "nume": "🎾 ATP Hamburg"},
-    {"id": "tennis_atp_indian_wells", "nume": "🎾 ATP Indian Wells"},
-    {"id": "tennis_atp_italian_open", "nume": "🎾 ATP Roma"},
-    {"id": "tennis_atp_madrid_open", "nume": "🎾 ATP Madrid"},
-    {"id": "tennis_atp_miami_open", "nume": "🎾 ATP Miami"},
-    {"id": "tennis_atp_monte_carlo_masters", "nume": "🎾 ATP Monte-Carlo"},
-    {"id": "tennis_atp_munich", "nume": "🎾 ATP Munchen"},
-    {"id": "tennis_atp_paris_masters", "nume": "🎾 ATP Paris Masters"},
-    {"id": "tennis_atp_qatar_open", "nume": "🎾 ATP Qatar"},
-    {"id": "tennis_atp_shanghai_masters", "nume": "🎾 ATP Shanghai"},
-    {"id": "tennis_wta_canadian_open", "nume": "🎾 WTA Canadian Open"},
-    {"id": "tennis_wta_charleston_open", "nume": "🎾 WTA Charleston"},
-    {"id": "tennis_wta_china_open", "nume": "🎾 WTA China Open"},
-    {"id": "tennis_wta_cincinnati_open", "nume": "🎾 WTA Cincinnati"},
-    {"id": "tennis_wta_dubai", "nume": "🎾 WTA Dubai"},
-    {"id": "tennis_wta_indian_wells", "nume": "🎾 WTA Indian Wells"},
-    {"id": "tennis_wta_italian_open", "nume": "🎾 WTA Roma"},
-    {"id": "tennis_wta_madrid_open", "nume": "🎾 WTA Madrid"},
-    {"id": "tennis_wta_miami_open", "nume": "🎾 WTA Miami"},
-    {"id": "tennis_wta_qatar_open", "nume": "🎾 WTA Qatar"},
-    {"id": "tennis_wta_strasbourg", "nume": "🎾 WTA Strasbourg"},
-    {"id": "tennis_wta_stuttgart_open", "nume": "🎾 WTA Stuttgart"},
-    {"id": "tennis_wta_wuhan_open", "nume": "🎾 WTA Wuhan"}
+    {"id": "tennis_atp_french_open", "nume": "ATP French Open (Roland Garros)"},
+    {"id": "tennis_wta_french_open", "nume": "WTA French Open (Roland Garros)"},
+    {"id": "tennis_atp_combined", "nume": "Toate Meciurile ATP Active"},
+    {"id": "tennis_wta_combined", "nume": "Toate Meciurile WTA Active"}
 ]
 
 def adu_meciuri_tenis(sport_key):
@@ -59,11 +27,10 @@ def adu_meciuri_tenis(sport_key):
         "apiKey": API_KEY,
         "regions": "eu",
         "markets": "h2h",
-        "bookmakers": "unibet,bwin,betclic,pinnacle",
         "oddsFormat": "decimal"
     }
     try:
-        response = requests.get(url, params=params)
+        response = requests.get(url, params=params, timeout=10)
         return response.json() if response.status_code == 200 else []
     except:
         return []
@@ -75,17 +42,22 @@ def converteste_ora(ora_utc_str):
         ora_ro = ora_utc.replace(tzinfo=pytz.utc).astimezone(tz_ro)
         return ora_ro.strftime("%d-%m-%Y %H:%M")
     except:
-        return ora_utc_str
+        return "N/A"
 
-# Sidebar - Strategie pariere
-st.sidebar.header("🎯 Opțiuni Bilet")
-mod_pariere = st.sidebar.selectbox("Ce tip de pronostic vrei pe bilet?", ["Doar Semne Clare (1 sau 2)", "Pariuri Variate (Game-uri / Handicap)"])
+# Sidebar - Strategie de Filtrare
+st.sidebar.header("🛡️ Managementul Riscului")
+filtreaza_capcane = st.sidebar.checkbox("Ascunde meciurile extrem de riscante (Loterii)", value=True)
 
 toate_meciurile = []
 
-with st.spinner("Se generează pronosticurile..."):
+with st.spinner("Se analizează tablourile de joc și cotele din agenții..."):
     for cat in categorii_tenis:
         date_meciuri = adu_meciuri_tenis(cat["id"])
+        
+        if isinstance(date_meciuri, dict):
+            continue
+            
+        is_wta = "WTA" in cat["nume"]
         
         for meci in date_meciuri:
             home_team = meci.get("home_team")
@@ -94,47 +66,69 @@ with st.spinner("Se generează pronosticurile..."):
             
             cota_1, cota_2 = None, None
             bookmakers = meci.get("bookmakers", [])
-            if bookmakers:
+            
+            if bookmakers and len(bookmakers) > 0:
                 markets = bookmakers[0].get("markets", [])
-                if markets:
+                if markets and len(markets) > 0:
                     outcomes = markets[0].get("outcomes", [])
                     for out in outcomes:
-                        if out["name"] == home_team: cota_1 = out["price"]
-                        elif out["name"] == away_team: cota_2 = out["price"]
+                        if out["name"] == home_team: cota_1 = float(out["price"])
+                        elif out["name"] == away_team: cota_2 = float(out["price"])
             
+            # Începe filtrarea și analiza inteligentă
             if cota_1 and cota_2:
-                marja = (1/cota_1) + (1/cota_2)
-                prob_1 = ((1 / cota_1) / marja) * 100
-                prob_2 = ((1 / cota_2) / marja) * 100
                 
-                # --- STRATEGIE DE GENERARE PRONOSTICURI ---
-                if mod_pariere == "Doar Semne Clare (1 sau 2)":
-                    pronostic = "👉 Semn: 1" if prob_1 > prob_2 else "👉 Semn: 2"
+                # Regula 1: Identificare echilibru total (Cote de tip capcană/loterie 1.70 - 2.10)
+                if 1.65 <= cota_1 <= 2.15 and 1.65 <= cota_2 <= 2.15:
+                    if filtreaza_capcane: 
+                        continue  # Sare peste ele dacă utilizatorul vrea siguranță
+                    verdict_risc = "⚠️ RISC RIDICAT (Loterie)"
+                    pronostic = "📈 Peste 3.5 Seturi / Peste 22.5 Game-uri"
+                
+                # Regula 2: Favorit Uriaș ATP (Grand Slam - 3 din 5 seturi)
+                elif cota_1 < 1.25 and not is_wta:
+                    verdict_risc = "🟩 VIP SIGUR"
+                    pronostic = f"🎾 Scor Corect: 3-0 sau 3-1 la seturi ({home_team})"
+                elif cota_2 < 1.25 and not is_wta:
+                    verdict_risc = "🟩 VIP SIGUR"
+                    pronostic = f"🎾 Scor Corect: 3-0 sau 3-1 la seturi ({away_team})"
+                    
+                # Regula 3: Alerta la Tenis Feminin (WTA) - Favorită cu cotă mică, dar instabilă
+                elif cota_1 < 1.30 and is_wta:
+                    verdict_risc = "🟨 HIGHLIGHT WTA"
+                    pronostic = f"👉 Handicap: -1.5 Seturi ({home_team}) SAU Sub 19.5 Game-uri"
+                elif cota_2 < 1.30 and is_wta:
+                    verdict_risc = "🟨 HIGHLIGHT WTA"
+                    pronostic = f"👉 Handicap: -1.5 Seturi ({away_team}) SAU Sub 19.5 Game-uri"
+                
+                # Regula 4: Meciuri cu favorit mediu standard
                 else:
-                    # Meci extrem de strâns (cote echilibrate) -> Recomandăm total game-uri ridicat
-                    if 1.70 <= cota_1 <= 2.15 and 1.70 <= cota_2 <= 2.15:
-                        pronostic = "📈 Peste 21.5 Game-uri"
-                    # Favorit uriaș (cota foarte mică) -> Se cere handicap sau sub game-uri
-                    elif cota_1 < 1.25:
-                        pronostic = "🎾 Handicap: -4.5 Game-uri (1)"
-                    elif cota_2 < 1.25:
-                        pronostic = "🎾 Handicap: -4.5 Game-uri (2)"
-                    # Meci normal -> Mergem direct pe semnul favoritului
+                    verdict_risc = "🟦 VALUE BET"
+                    if cota_1 < cota_2:
+                        pronostic = f"👉 Câștigă direct: {home_team} (Cota: {cota_1:.2f})"
                     else:
-                        pronostic = "👉 Semn: 1" if prob_1 > prob_2 else "👉 Semn: 2"
+                        pronostic = f"👉 Câștigă direct: {away_team} (Cota: {cota_2:.2f})"
                 
                 toate_meciurile.append({
+                    "Circuit": "WTA 👩" if is_wta else "ATP 👨",
                     "Competiție": cat["nume"],
                     "Dată & Oră RO": commence_time,
                     "Meci": f"{home_team} vs {away_team}",
-                    "Cota 1": cota_1,
-                    "Cota 2": cota_2,
-                    "PRONOSTIC DIRECT": pronostic
+                    "Cota 1": f"{cota_1:.2f}",
+                    "Cota 2": f"{cota_2:.2f}",
+                    "VERDICT STRATEGIC": verdict_risc,
+                    "RECOMANDARE PROFESIONISTĂ": pronostic
                 })
 
 if toate_meciurile:
     df = pd.DataFrame(toate_meciurile)
-    st.success(f"S-au analizat {len(df)} meciuri!")
+    df = df.drop_duplicates(subset=["Meci"])
+    
+    st.success(f"🔥 Filtrare completă! Din sute de meciuri, au rămas doar {len(df)} selecții inteligente.")
+    
+    # Sortăm ca să vedem meciurile cele mai sigure (VIP) primele în tabel
+    df = df.sort_values(by=["VERDICT STRATEGIC"], ascending=True)
+    
     st.dataframe(df, use_container_width=True)
 else:
-    st.info("Nu sunt meciuri active în turneele selectate.")
+    st.info("Nu sunt meciuri care să îndeplinească criteriile stricte de siguranță în acest moment.")
