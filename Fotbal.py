@@ -11,14 +11,8 @@ def preia_toate_meciurile_lumii():
     # 🔴 Cheia ta API salvată corect:
     API_KEY = "2429b4002790df20061f98437e5c97b2"
     
-    ligi_configurate = [
-        {"id": "soccer_sweden_allsvenskan", "nume": "Allsvenskan - Sweden"},      
-        {"id": "soccer_sweden_superettan", "nume": "Superettan - Sweden"},
-        {"id": "soccer_spain_segunda_division", "nume": "soccer_spain_segunda_division"},
-        {"id": "soccer_finland_veikkausliiga", "nume": "Veikkausliiga - Finland"},
-        {"id": "soccer_norway_eliteserien", "nume": "Eliteserien - Norway"},
-        {"id": "soccer_china_superleague", "nume": "Super League - China"},
-        {"id": "soccer_uefa_champs_league", "nume": "UEFA Champions League"},
+    ligi_configurate = [
+        {"id": "soccer_fifa_world_cup", "nume": "World Cup"},
     ]
     
     lista_meciuri = []
