@@ -17,8 +17,6 @@ API_KEY = "2429b4002790df20061f98437e5c97b2"
 categorii_tenis = [
     {"id": "tennis_atp_french_open", "nume": "ATP French Open (Roland Garros)"},
     {"id": "tennis_wta_french_open", "nume": "WTA French Open (Roland Garros)"},
-    {"id": "tennis_atp_combined", "nume": "Toate Meciurile ATP Active"},
-    {"id": "tennis_wta_combined", "nume": "Toate Meciurile WTA Active"}
 ]
 
 def adu_meciuri_tenis(sport_key):
