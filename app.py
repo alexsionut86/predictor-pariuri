@@ -69,12 +69,13 @@ tab1, tab2, tab3, tab4 = st.tabs([
     "✍️ Introducere Manuală"
 ])
 
-# --- TAB 1: FLASHSCORE LINK (FLEXIBIL & SUPORT LINK MOBIL) ---
+# --- TAB 1: FLASHSCORE LINK (CU EXTRAGERE AUTOMATĂ DE NUME) ---
 with tab1:
     st.markdown("### 🔗 Analiză rapidă prin Link Flashscore")
     st.write("Apasă **Share (Distribuie)** în aplicația Flashscore de pe telefon și lipește link-ul mai jos:")
     
     url_input = st.text_input("Lipește link-ul meciului (ex: https://www.flashscore.ro/r/?t=1&id=... sau /meci/...):")
+    nume_manual = st.text_input("Nume Meci (Opțional - scrie doar dacă dorești să modifici numele):", "")
     
     col_l1, col_l2 = st.columns(2)
     with col_l1:
@@ -84,15 +85,31 @@ with tab1:
 
     if st.button("🚀 ANALIZEAZĂ MECIUL DIN LINK", use_container_width=True):
         if url_input:
-            # Regex flexibil ce extrage ID-ul din orice format (/meci/ID, id=ID, Https/https)
             match_id_search = re.search(r'(?:/meci/|id=)([a-zA-Z0-9]+)', url_input, re.IGNORECASE)
             
             if match_id_search:
                 match_id = match_id_search.group(1)
-                st.success(f"✅ Meci identificat cu succes! ID: `{match_id}`")
+                nume_meci_final = nume_manual if nume_manual else f"Meci Flashscore ({match_id})"
+                
+                # Încercăm extragerea automată a titlului din pagina web
+                if not nume_manual:
+                    try:
+                        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
+                        req = requests.get(url_input, headers=headers, timeout=3)
+                        if req.status_code == 200:
+                            titlu_search = re.search(r'<title>(.*?)</title>', req.text, re.IGNORECASE)
+                            if titlu_search:
+                                raw_titlu = titlu_search.group(1)
+                                titlu_curat = raw_titlu.split('|')[0].split('- Flashscore')[0].replace('Flashscore.ro', '').strip()
+                                if titlu_curat:
+                                    nume_meci_final = titlu_curat
+                    except Exception:
+                        pass
+                
+                st.success(f"✅ Meci identificat: **{nume_meci_final}**")
                 
                 res = analizeaza_si_filtreaza_meci(
-                    meci_nume=f"Meci Flashscore ({match_id})",
+                    meci_nume=nume_meci_final,
                     liga_nume="Analiză Live",
                     data_ora="Azi",
                     c1=c1_link,
