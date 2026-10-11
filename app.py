@@ -61,6 +61,46 @@ def analizeaza_si_filtreaza_meci(meci_nume, liga_nume, data_ora, c1, cX, c2, med
         "🛡️ ALTERNATIVĂ SAFE": f"{alternativa} ({p_alt}%)"
     }
 
+# --- FUNCȚIE DE EXTRAGERE COTE ȘI ECHIPI DE PE FLASHSCORE ---
+def extrage_date_flashscore_real(match_id, url_meci):
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'X-FSAU': 'true'
+    }
+    
+    nume_meci = f"Meci ({match_id})"
+    c1, cX, c2 = 1.90, 3.30, 4.00 # Valori de rezerva
+    
+    # 1. Extragere Nume Echipe din Pagina Web
+    try:
+        req = requests.get(url_meci, headers=headers, timeout=4)
+        if req.status_code == 200:
+            titlu_match = re.search(r'<title>(.*?)</title>', req.text, re.IGNORECASE)
+            if titlu_match:
+                raw_t = titlu_match.group(1)
+                curat = raw_t.split('|')[0].split('- Flashscore')[0].replace('Flashscore.ro', '').strip()
+                if curat and len(curat) > 3:
+                    nume_meci = curat
+    except Exception:
+        pass
+
+    # 2. Extragere Cote Reale din Feed-ul de Cote Flashscore
+    try:
+        url_odds = f"https://2.ds.lsf.com/x/feed/df_od_1_{match_id}"
+        req_odds = requests.get(url_odds, headers=headers, timeout=4)
+        if req_odds.status_code == 200:
+            text_odds = req_odds.text
+            # Căutare cote în structura de feed
+            cote_gasite = re.findall(r'\[([0-9]+\.[0-9]+)\]', text_odds)
+            if len(cote_gasite) >= 3:
+                c1 = float(cote_gasite[0])
+                cX = float(cote_gasite[1])
+                c2 = float(cote_gasite[2])
+    except Exception:
+        pass
+
+    return nume_meci, c1, cX, c2
+
 # --- MODURI DE INTRODUCERE A DATELOR ---
 tab1, tab2, tab3, tab4 = st.tabs([
     "🔗 Din Link Flashscore (Mobil)", 
@@ -69,52 +109,32 @@ tab1, tab2, tab3, tab4 = st.tabs([
     "✍️ Introducere Manuală"
 ])
 
-# --- TAB 1: FLASHSCORE LINK (CU EXTRAGERE AUTOMATĂ DE NUME) ---
+# --- TAB 1: FLASHSCORE LINK ---
 with tab1:
     st.markdown("### 🔗 Analiză rapidă prin Link Flashscore")
     st.write("Apasă **Share (Distribuie)** în aplicația Flashscore de pe telefon și lipește link-ul mai jos:")
     
-    url_input = st.text_input("Lipește link-ul meciului (ex: https://www.flashscore.ro/r/?t=1&id=... sau /meci/...):")
-    nume_manual = st.text_input("Nume Meci (Opțional - scrie doar dacă dorești să modifici numele):", "")
-    
-    col_l1, col_l2 = st.columns(2)
-    with col_l1:
-        c1_link = st.number_input("Cotă 1 (Gazde):", min_value=1.01, value=1.90, step=0.01)
-    with col_l2:
-        c2_link = st.number_input("Cotă 2 (Oaspeți):", min_value=1.01, value=4.00, step=0.01)
+    url_input = st.text_input("Lipește link-ul meciului (ex: https://www.flashscore.ro/r/?t=1&id=...):")
 
-    if st.button("🚀 ANALIZEAZĂ MECIUL DIN LINK", use_container_width=True):
+    if st.button("🚀 ANALIZEAZĂ MECIUL AUTOMAT", use_container_width=True):
         if url_input:
             match_id_search = re.search(r'(?:/meci/|id=)([a-zA-Z0-9]+)', url_input, re.IGNORECASE)
             
             if match_id_search:
                 match_id = match_id_search.group(1)
-                nume_meci_final = nume_manual if nume_manual else f"Meci Flashscore ({match_id})"
                 
-                # Încercăm extragerea automată a titlului din pagina web
-                if not nume_manual:
-                    try:
-                        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
-                        req = requests.get(url_input, headers=headers, timeout=3)
-                        if req.status_code == 200:
-                            titlu_search = re.search(r'<title>(.*?)</title>', req.text, re.IGNORECASE)
-                            if titlu_search:
-                                raw_titlu = titlu_search.group(1)
-                                titlu_curat = raw_titlu.split('|')[0].split('- Flashscore')[0].replace('Flashscore.ro', '').strip()
-                                if titlu_curat:
-                                    nume_meci_final = titlu_curat
-                    except Exception:
-                        pass
+                with st.spinner("⏳ Se extrag echipele și cotele reale de pe Flashscore..."):
+                    nume_echipe, c1_real, cX_real, c2_real = extrage_date_flashscore_real(match_id, url_input)
                 
-                st.success(f"✅ Meci identificat: **{nume_meci_final}**")
+                st.success(f"✅ Identificat: **{nume_echipe}** | Cote găsite: 1: `{c1_real}` | X: `{cX_real}` | 2: `{c2_real}`")
                 
                 res = analizeaza_si_filtreaza_meci(
-                    meci_nume=nume_meci_final,
+                    meci_nume=nume_echipe,
                     liga_nume="Analiză Live",
                     data_ora="Azi",
-                    c1=c1_link,
-                    cX=3.30,
-                    c2=c2_link,
+                    c1=c1_real,
+                    cX=cX_real,
+                    c2=c2_real,
                     medie_goluri=2.1
                 )
                 st.session_state.bilet_fotbal_premium.append(res)
@@ -125,7 +145,7 @@ with tab1:
         else:
             st.warning("Te rugăm să lipești un link mai întâi.")
 
-# --- TAB 2: SIMULARE API LIVE ---
+# --- TAB 2: SIMULARE LIVE ---
 with tab2:
     st.markdown("### 🤖 Preluare Automată a Meciurilor")
     if st.button("🚀 EXTRAGE AUTOMAT MECIURILE ZILEI", use_container_width=True):
