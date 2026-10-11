@@ -14,7 +14,7 @@ st.markdown("<h1 style='text-align: center;'>⚽ Algoritm VIP Pro (Versiune Anti
 st.markdown("<p style='text-align: center; color: gray;'>Analiză bazată pe date reale și link-uri Flashscore.</p>", unsafe_allow_html=True)
 
 st.info("""
-💡 **STRATEGIE ANTI-RISC (2 MECIURI PER BILET):**
+💡 **STRATEGIE ANTI-RISC (MAXIM 2 MECIURI PER BILET):**
 * Target: Cota finală **~2.00**.
 * Opțiuni permise: **Peste 1.5 Goluri** sau **Șansă Dublă (1X / X2)**.
 * Fără combinații periculoase de Bet Builder (fără intervale de tip 1-4 goluri).
@@ -42,7 +42,7 @@ def analizeaza_si_filtreaza_meci(meci_nume, liga_nume, data_ora, c1, cX, c2, med
         alternativa = "Șansă dublă 1X"
         p_alt = 80
     else:
-        verdict = "libre MECI STRÂNS / RISCANT"
+        verdict = "🟥 MECI STRÂNS / RISCANT"
         predicție_principala = "Peste 0.5 Goluri Repriza 2"
         p_principala = 78
         alternativa = "Peste 1.5 Goluri"
@@ -69,47 +69,49 @@ tab1, tab2, tab3, tab4 = st.tabs([
     "✍️ Introducere Manuală"
 ])
 
-# --- TAB 1: FLASHSCORE LINK (SPECIAL PENTRU TELEFON) ---
+# --- TAB 1: FLASHSCORE LINK (FLEXIBIL & SUPORT LINK MOBIL) ---
 with tab1:
     st.markdown("### 🔗 Analiză rapidă prin Link Flashscore")
-    st.write("Apasă **Share (Distribuie)** în aplicația Flashscore de pe telefon, copiază link-ul meciului și lipește-l mai jos:")
+    st.write("Apasă **Share (Distribuie)** în aplicația Flashscore de pe telefon și lipește link-ul mai jos:")
     
-    url_input = st.text_input("Lipește link-ul meciului (ex: https://www.flashscore.ro/meci/...):")
+    url_input = st.text_input("Lipește link-ul meciului (ex: https://www.flashscore.ro/r/?t=1&id=... sau /meci/...):")
     
     col_l1, col_l2 = st.columns(2)
     with col_l1:
-        c1_link = st.number_input("Cotă 1 (Opțional, pentru precizie):", min_value=1.01, value=1.90, step=0.01)
+        c1_link = st.number_input("Cotă 1 (Gazde):", min_value=1.01, value=1.90, step=0.01)
     with col_l2:
-        c2_link = st.number_input("Cotă 2 (Opțional):", min_value=1.01, value=4.00, step=0.01)
+        c2_link = st.number_input("Cotă 2 (Oaspeți):", min_value=1.01, value=4.00, step=0.01)
 
     if st.button("🚀 ANALIZEAZĂ MECIUL DIN LINK", use_container_width=True):
         if url_input:
-            match_id_search = re.search(r'/meci/([a-zA-Z0-9]+)', url_input)
+            # Regex flexibil ce extrage ID-ul din orice format (/meci/ID, id=ID, Https/https)
+            match_id_search = re.search(r'(?:/meci/|id=)([a-zA-Z0-9]+)', url_input, re.IGNORECASE)
+            
             if match_id_search:
                 match_id = match_id_search.group(1)
-                st.success(f"✅ Meci identificat cu ID: `{match_id}`")
+                st.success(f"✅ Meci identificat cu succes! ID: `{match_id}`")
                 
-                # Generare analiză pe baza ID-ului și cotelor
                 res = analizeaza_si_filtreaza_meci(
-                    meci_nume=f"Meci Flashscore ID: {match_id}",
-                    liga_nume="Liga Selectată",
-                    data_ora="Meci Programat Azi",
+                    meci_nume=f"Meci Flashscore ({match_id})",
+                    liga_nume="Analiză Live",
+                    data_ora="Azi",
                     c1=c1_link,
                     cX=3.30,
                     c2=c2_link,
                     medie_goluri=2.1
                 )
                 st.session_state.bilet_fotbal_premium.append(res)
-                st.toast("✅ Meci adăugat în tabelul de analiză!")
+                st.toast("✅ Meci adăugat în tabel!")
+                st.rerun()
             else:
-                st.error("❌ Link-ul introdus nu conține un ID de meci Flashscore valid.")
+                st.error("❌ Link invalid. Asigură-te că link-ul conține un ID de meci din Flashscore.")
         else:
             st.warning("Te rugăm să lipești un link mai întâi.")
 
-# --- TAB 2: SIMULARE LIVE ---
+# --- TAB 2: SIMULARE API LIVE ---
 with tab2:
-    st.markdown("### 🤖 Preluare Meciuri Zilei")
-    if st.button("🚀 EXTRAGE AUTOMAT", use_container_width=True):
+    st.markdown("### 🤖 Preluare Automată a Meciurilor")
+    if st.button("🚀 EXTRAGE AUTOMAT MECIURILE ZILEI", use_container_width=True):
         meciuri_demo = [
             {"meci": "Farul Constanța vs Petrolul Ploiești", "liga": "Superliga România", "ora": "Azi 21:00", "c1": 1.90, "cX": 3.30, "c2": 4.20},
             {"meci": "Real Madrid vs Getafe", "liga": "La Liga", "ora": "Azi 22:00", "c1": 1.25, "cX": 6.00, "c2": 11.00}
@@ -123,7 +125,7 @@ with tab2:
 # --- TAB 3: ÎNCĂRCARE FIȘIER ---
 with tab3:
     st.markdown("### 📁 Încarcă fișier CSV / Excel")
-    uploaded_file = st.file_uploader("Fișier meciuri", type=["xlsx", "csv"])
+    uploaded_file = st.file_uploader("Alege fișierul Excel sau CSV", type=["xlsx", "csv"])
     if uploaded_file is not None:
         try:
             df_input = pd.read_csv(uploaded_file) if uploaded_file.name.endswith('.csv') else pd.read_excel(uploaded_file)
@@ -135,10 +137,10 @@ with tab3:
                         float(str(row.get("Cota 1", 2.0)).replace(",", ".")), float(str(row.get("Cota X", 3.0)).replace(",", ".")), float(str(row.get("Cota 2", 3.0)).replace(",", "."))
                     )
                     st.session_state.bilet_fotbal_premium.append(res)
-                st.success("✅ Fișier procesat!")
+                st.success("✅ Fișier procesat cu succes!")
                 st.rerun()
         except Exception as e:
-            st.error(f"Eroare: {e}")
+            st.error(f"Eroare la procesare: {e}")
 
 # --- TAB 4: INTRODUCERE MANUALĂ ---
 with tab4:
@@ -148,14 +150,14 @@ with tab4:
     cX_i = st.number_input("Cotă X", min_value=1.01, value=3.40, step=0.01)
     c2_i = st.number_input("Cotă 2", min_value=1.01, value=4.00, step=0.01)
     
-    if st.button("➕ ADAUGĂ MECI MANUAL"):
+    if st.button("➕ ADAUGĂ MECI ÎN TABEL"):
         res = analizeaza_si_filtreaza_meci(meci_i, "Superliga", "Azi", c1_i, cX_i, c2_i)
         st.session_state.bilet_fotbal_premium.append(res)
         st.toast(f"✅ Adăugat: {meci_i}")
 
 st.write("---")
 
-# --- TABEL CU REZULTATE ---
+# --- TABEL CU REZULTATE ȘI EXPORT ---
 if st.session_state.bilet_fotbal_premium:
     df = pd.DataFrame(st.session_state.bilet_fotbal_premium)
     st.markdown("### 📋 Meciuri Analizate (Fără Bet Builder)")
