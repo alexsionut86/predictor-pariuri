@@ -10,19 +10,17 @@ if "bilet_fotbal_premium" not in st.session_state:
 
 # --- TITLU ȘI STRATEGIE ---
 st.markdown("<h1 style='text-align: center;'>⚽ Algoritm VIP Pro (API Pro Multi-Markets)</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: gray;'>Cote Reale 1X2, Peste/Sub 1.5 Goluri și Șansă Dublă extrase direct din API.</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: gray;'>Cote Reale direct de la Superbet, Betano, Bet365, Unibet, etc.</p>", unsafe_allow_html=True)
 
 st.info("""
 💡 **STRATEGIE ANTI-RISC PRO (2 MECIURI PER BILET):**
 * Target Bilet: **Cota Finală ~2.00**
 * Piețe Analizate Direct: **Șansă Dublă (1X / X2)** & **Peste 1.5 Goluri Marcate**.
-* Fără supoziții: Cotele reale pentru toate piețele sunt furnizate direct de casa de pariuri!
 """)
 st.write("---")
 
-# --- ALGORITM MATEMATIC DE PREDICTOR PENTRU PIEȚE MULTIPLE ---
+# --- ALGORITM MATEMATIC DE PREDICTOR ---
 def analizeaza_si_filtreaza_meci(meci_nume, liga_nume, status, c1, cX, c2, c_over15, c_1x, c_x2):
-    # Evaluare Favorit & Șansă Dublă
     if c1 > 0 and c1 <= 1.55:
         verdict = "🟩 FAVORIT CLAR (GAZDE)"
         predicție_principala = f"Șansă Dublă 1X (Cotă: {c_1x:.2f})" if c_1x > 0 else "Șansă Dublă 1X"
@@ -66,13 +64,18 @@ def analizeaza_si_filtreaza_meci(meci_nume, liga_nume, status, c1, cX, c2, c_ove
 # --- SIDEBAR CONFIG ---
 st.sidebar.header("🔑 Configurare API Pro")
 api_key_input = st.sidebar.text_input("API-Key (API-Sports):", type="password")
+
+# Opțiuni cu Superbet și Betano incluse
 bookmaker_id = st.sidebar.selectbox("Casa de Pariuri Favorită:", [
     ("Toate / Prima Disponibilă", None),
+    ("Superbet", 29),
+    ("Betano / Stoiximan", 23),
     ("Bet365", 8),
-    ("1xBet", 1),
     ("Unibet", 3),
+    ("1xBet", 1),
     ("Bwin", 6),
-    ("Pinnacle", 4)
+    ("Pinnacle", 4),
+    ("888Sport", 18)
 ], format_func=lambda x: x[0])[1]
 
 # --- FUNCȚIE PRELUARE MULTIPLE PIEȚE DIN API ---
@@ -92,7 +95,14 @@ def extrage_toate_cotele_meci(fixture_id, headers, bookmaker_filter=None):
             data = res.json().get("response", [])
             if data and data[0].get("bookmakers"):
                 bookmakers = data[0]["bookmakers"]
+                
                 bm = bookmakers[0]
+                if bookmaker_filter:
+                    for b in bookmakers:
+                        if b.get("id") == bookmaker_filter:
+                            bm = b
+                            break
+
                 for bet in bm.get("bets", []):
                     bet_id = bet.get("id")
                     
@@ -161,7 +171,6 @@ with tab1:
                             league_name = match["league"]["name"]
                             status = match["fixture"]["status"]["short"]
                             
-                            # Extragere cote reale pentru multiple piețe (1X2, Over 1.5, Double Chance)
                             c1, cX, c2, c_over15, c_1x, c_x2 = extrage_toate_cotele_meci(fix_id, headers, bookmaker_id)
                             
                             res = analizeaza_si_filtreaza_meci(
@@ -208,21 +217,4 @@ with tab2:
 st.write("---")
 
 # --- TABEL REZULTATE ---
-if st.session_state.bilet_fotbal_premium:
-    df = pd.DataFrame(st.session_state.bilet_fotbal_premium)
-    st.markdown("### 📋 Meciuri Analizate (Cote Directe din API)")
-    st.dataframe(df, use_container_width=True)
-    
-    col_d1, col_d2 = st.columns(2)
-    with col_d1:
-        st.download_button(
-            "📥 DESCARCĂ REZULTATELE (CSV)",
-            data=df.to_csv(index=False).encode('utf-8-sig'),
-            file_name="bilet_anti_risc_pro.csv",
-            mime="text/csv",
-            use_container_width=True
-        )
-    with col_d2:
-        if st.button("🗑️ RESETEAZĂ TABELUL", use_container_width=True):
-            st.session_state.bilet_fotbal_premium = []
-            st.rerun()
+if st.session_state
