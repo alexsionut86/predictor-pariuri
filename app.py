@@ -1,16 +1,17 @@
 import streamlit as st
 import pandas as pd
 import requests
+import re
 
 # --- CONFIGURARE PAGINĂ ---
-st.set_page_config(page_title="Fotbal VIP Pro - Anti-Risc API", layout="wide", page_icon="⚽")
+st.set_page_config(page_title="Fotbal VIP Pro - Anti-Risc", layout="wide", page_icon="⚽")
 
 if "bilet_fotbal_premium" not in st.session_state:
     st.session_state["bilet_fotbal_premium"] = []
 
 # --- TITLU ȘI STRATEGIE ---
-st.markdown("<h1 style='text-align: center;'>⚽ Algoritm VIP Pro (API Live 100% Automat)</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: gray;'>Date oficiale direct de la furnizorii de cote sportive.</p>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center;'>⚽ Algoritm VIP Pro (Versiune Anti-Risc Mobil)</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: gray;'>Analiză rapidă și sigură pentru mobil.</p>", unsafe_allow_html=True)
 
 st.info("""
 💡 **STRATEGIE ANTI-RISC (MAXIM 2 MECIURI PER BILET):**
@@ -59,116 +60,79 @@ def analizeaza_si_filtreaza_meci(meci_nume, liga_nume, data_ora, c1, cX, c2, med
         "🛡️ ALTERNATIVĂ SAFE": f"{alternativa} ({p_alt}%)"
     }
 
-# --- CHEIE API & SIDEBAR ---
-st.sidebar.header("🔑 Configurare API-Football")
-api_key = st.sidebar.text_input("Lipește Cheia API (API Key):", type="password")
-
-# --- FUNCȚIE PRELUARE MECIURI ȘI COTE REALE ---
-def obtine_meciuri_si_cote_api(key, data_cautata):
-    headers = {
-        'x-rapidapi-host': "v3.football.api-sports.io",
-        'x-rapidapi-key': key
-    }
-    
-    # 1. Preluare Meciuri
-    url_fixtures = "https://v3.football.api-sports.io/fixtures"
-    res_fix = requests.get(url_fixtures, headers=headers, params={"date": data_cautata}, timeout=10)
-    data_fix = res_fix.json().get("response", [])
-    
-    # 2. Preluare Cote 1X2 Reale
-    url_odds = "https://v3.football.api-sports.io/odds"
-    res_odds = requests.get(url_odds, headers=headers, params={"date": data_cautata, "bet": 1}, timeout=10)
-    data_odds = res_odds.json().get("response", [])
-    
-    # Hartă pentru potrivirea cotelor pe baza ID-ului de meci
-    dict_cote = {}
-    for item in data_odds:
-        fix_id = item["fixture"]["id"]
-        bookmakers = item.get("bookmakers", [])
-        if bookmakers:
-            bets = bookmakers[0].get("bets", [])
-            for bet in bets:
-                if bet.get("id") == 1:  # Bet ID 1 = Match Winner (1X2)
-                    values = bet.get("values", [])
-                    c1, cX, c2 = 0.0, 0.0, 0.0
-                    for val in values:
-                        if val["value"] == "Home":
-                            c1 = float(val["odd"])
-                        elif val["value"] == "Draw":
-                            cX = float(val["odd"])
-                        elif val["value"] == "Away":
-                            c2 = float(val["odd"])
-                    if c1 > 0 and c2 > 0:
-                        dict_cote[fix_id] = (c1, cX, c2)
-                        
-    return data_fix, dict_cote
+# --- PARSER INTELIGENT DE LINK ---
+def extrage_nume_meci(url):
+    nume_meci = ""
+    match_url_echipe = re.search(r'/fotbal/([a-zA-Z0-9\-]+)/([a-zA-Z0-9\-]+)', url, re.IGNORECASE)
+    if match_url_echipe:
+        g1 = match_url_echipe.group(1).split('-')[0].capitalize()
+        g2 = match_url_echipe.group(2).split('-')[0].capitalize()
+        nume_meci = f"{g1} vs {g2}"
+    return nume_meci
 
 # --- INTERFAȚĂ PRINCIPALĂ ---
-tab1, tab2 = st.tabs(["🚀 Căutare Automatizată Meciuri Zilei", "✍️ Introducere Manuală de Rezervă"])
+tab1, tab2 = st.tabs(["🚀 Analiză Meci Rapidă", "📁 Încarcă Fișier (Excel/CSV)"])
 
 with tab1:
-    st.markdown("### 📅 Meciurile Programate Astăzi")
-    data_selectata = st.date_input("Alege Data Meciurilor:", pd.to_datetime("today"))
-    data_str = data_selectata.strftime("%Y-%m-%d")
+    st.markdown("### ⚽ Introducere & Analiză Meci")
     
-    if st.button("⚡ ÎNCARCĂ MECIURILE & COTELOR REALE LIVE", use_container_width=True):
-        if not api_key:
-            st.warning("⚠️ Introduceți mai întâi cheia API în meniul din stânga (Sidebar)!")
-        else:
-            with st.spinner("⏳ Se descarcă meciurile și cotele reale 1X2..."):
-                meciuri_raw, cote_dict = obtine_meciuri_si_cote_api(api_key, data_str)
-                
-                if meciuri_raw:
-                    st.session_state.bilet_fotbal_premium = []
-                    count = 0
-                    
-                    for match in meciuri_raw[:30]:
-                        fix_id = match["fixture"]["id"]
-                        home_team = match["teams"]["home"]["name"]
-                        away_team = match["teams"]["away"]["name"]
-                        league_name = match["league"]["name"]
-                        status = match["fixture"]["status"]["short"]
-                        
-                        # Extragere cote reale dacă există în API, altfel fallback
-                        if fix_id in cote_dict:
-                            c1, cX, c2 = cote_dict[fix_id]
-                        else:
-                            c1, cX, c2 = 1.90, 3.30, 4.00
-                        
-                        res = analizeaza_si_filtreaza_meci(
-                            meci_nume=f"{home_team} vs {away_team}",
-                            liga_nume=league_name,
-                            data_ora=status,
-                            c1=c1,
-                            cX=cX,
-                            c2=c2
-                        )
-                        st.session_state.bilet_fotbal_premium.append(res)
-                        count += 1
-                        
-                    st.success(f"✅ S-au procesat automat {count} meciuri cu cote actualizate!")
-                    st.rerun()
-                else:
-                    st.error("❌ Nu s-au găsit meciuri sau cheia API este invalidă.")
+    url_input = st.text_input("🔗 Link Flashscore (Opțional - extrage numele meciului):")
+    nume_manual = st.text_input("Nume Meci (dacă nu folosești link):", "Atalanta vs Venezia")
+    
+    st.markdown("#### 📊 Cotele 1X2 reale din agenția ta de pariuri:")
+    col_c1, col_cx, col_c2 = st.columns(3)
+    with col_c1:
+        c1_m = st.number_input("Cotă 1 (Gazde):", min_value=1.01, value=1.54, step=0.01)
+    with col_cx:
+        cX_m = st.number_input("Cotă X (Egal):", min_value=1.01, value=4.65, step=0.01)
+    with col_c2:
+        c2_m = st.number_input("Cotă 2 (Oaspeți):", min_value=1.01, value=5.60, step=0.01)
+
+    if st.button("🚀 ANALIZEAZĂ MECIUL", use_container_width=True):
+        meci_final = nume_manual
+        if url_input:
+            nume_link = extrage_nume_meci(url_input)
+            if nume_link:
+                meci_final = nume_link
+        
+        res = analizeaza_si_filtreaza_meci(
+            meci_nume=meci_final,
+            liga_nume="Analiză Live",
+            data_ora="Azi",
+            c1=c1_m,
+            cX=cX_m,
+            c2=c2_m,
+            medie_goluri=2.2
+        )
+        st.session_state.bilet_fotbal_premium.append(res)
+        st.success(f"✅ Meci adăugat: **{meci_final}** | Recomandare: **{res['🎯 PREDICȚIE BAZĂ']}**")
+        st.rerun()
 
 with tab2:
-    st.markdown("### ✍️ Adaugă un meci manual")
-    meci_i = st.text_input("Nume Meci:", "Atalanta vs Venezia")
-    c1_i = st.number_input("Cotă 1", min_value=1.01, value=1.54, step=0.01)
-    cX_i = st.number_input("Cotă X", min_value=1.01, value=4.65, step=0.01)
-    c2_i = st.number_input("Cotă 2", min_value=1.01, value=5.60, step=0.01)
-    
-    if st.button("➕ ADAUGĂ MECI ÎN TABEL"):
-        res = analizeaza_si_filtreaza_meci(meci_i, "Serie A", "Azi", c1_i, cX_i, c2_i)
-        st.session_state.bilet_fotbal_premium.append(res)
-        st.toast(f"✅ Adăugat: {meci_i}")
+    st.markdown("### 📁 Încarcă fișier CSV / Excel")
+    uploaded_file = st.file_uploader("Alege fișierul Excel sau CSV", type=["xlsx", "csv"])
+    if uploaded_file is not None:
+        try:
+            df_input = pd.read_csv(uploaded_file) if uploaded_file.name.endswith('.csv') else pd.read_excel(uploaded_file)
+            if st.button("⚙️ PROCESEAZĂ FIȘIERUL", use_container_width=True):
+                st.session_state.bilet_fotbal_premium = []
+                for _, row in df_input.iterrows():
+                    res = analizeaza_si_filtreaza_meci(
+                        str(row.get("Meci", "Meci")), str(row.get("Ligă", "Competiție")), str(row.get("Data / Ora", "Azi")),
+                        float(str(row.get("Cota 1", 2.0)).replace(",", ".")), float(str(row.get("Cota X", 3.0)).replace(",", ".")), float(str(row.get("Cota 2", 3.0)).replace(",", "."))
+                    )
+                    st.session_state.bilet_fotbal_premium.append(res)
+                st.success("✅ Fișier procesat cu succes!")
+                st.rerun()
+        except Exception as e:
+            st.error(f"Eroare la procesare: {e}")
 
 st.write("---")
 
-# --- TABEL REZULTATE ---
+# --- TABEL REZULTATE ȘI EXPORT ---
 if st.session_state.bilet_fotbal_premium:
     df = pd.DataFrame(st.session_state.bilet_fotbal_premium)
-    st.markdown("### 📋 Meciuri Analizate")
+    st.markdown("### 📋 Meciuri Analizate (Bilet Anti-Risc)")
     st.dataframe(df, use_container_width=True)
     
     col_d1, col_d2 = st.columns(2)
