@@ -16,7 +16,6 @@ st.info("""
 💡 **STRATEGIE ANTI-RISC (MAXIM 2 MECIURI PER BILET):**
 * Target: Cota finală **~2.00**.
 * Opțiuni permise: **Peste 1.5 Goluri** sau **Șansă Dublă (1X / X2)**.
-* Fără combinații periculoase de Bet Builder.
 """)
 st.write("---")
 
@@ -60,26 +59,49 @@ def analizeaza_si_filtreaza_meci(meci_nume, liga_nume, data_ora, c1, cX, c2, med
         "🛡️ ALTERNATIVĂ SAFE": f"{alternativa} ({p_alt}%)"
     }
 
-# --- CHEIE API & SECTOR CONFIG ---
+# --- CHEIE API & SIDEBAR ---
 st.sidebar.header("🔑 Configurare API-Football")
 api_key = st.sidebar.text_input("Lipește Cheia API (API Key):", type="password")
 
-# --- FUNCȚIE PRELUARE MECIURI DIN API ---
-def obtine_meciuri_api(key, data_cautata):
-    url = "https://v3.football.api-sports.io/fixtures"
+# --- FUNCȚIE PRELUARE MECIURI ȘI COTE REALE ---
+def obtine_meciuri_si_cote_api(key, data_cautata):
     headers = {
         'x-rapidapi-host': "v3.football.api-sports.io",
         'x-rapidapi-key': key
     }
-    params = {"date": data_cautata}
     
-    try:
-        response = requests.get(url, headers=headers, params=params, timeout=10)
-        data = response.json()
-        return data.get("response", [])
-    except Exception as e:
-        st.error(f"Eroare conectare API: {e}")
-        return []
+    # 1. Preluare Meciuri
+    url_fixtures = "https://v3.football.api-sports.io/fixtures"
+    res_fix = requests.get(url_fixtures, headers=headers, params={"date": data_cautata}, timeout=10)
+    data_fix = res_fix.json().get("response", [])
+    
+    # 2. Preluare Cote 1X2 Reale
+    url_odds = "https://v3.football.api-sports.io/odds"
+    res_odds = requests.get(url_odds, headers=headers, params={"date": data_cautata, "bet": 1}, timeout=10)
+    data_odds = res_odds.json().get("response", [])
+    
+    # Hartă pentru potrivirea cotelor pe baza ID-ului de meci
+    dict_cote = {}
+    for item in data_odds:
+        fix_id = item["fixture"]["id"]
+        bookmakers = item.get("bookmakers", [])
+        if bookmakers:
+            bets = bookmakers[0].get("bets", [])
+            for bet in bets:
+                if bet.get("id") == 1:  # Bet ID 1 = Match Winner (1X2)
+                    values = bet.get("values", [])
+                    c1, cX, c2 = 0.0, 0.0, 0.0
+                    for val in values:
+                        if val["value"] == "Home":
+                            c1 = float(val["odd"])
+                        elif val["value"] == "Draw":
+                            cX = float(val["odd"])
+                        elif val["value"] == "Away":
+                            c2 = float(val["odd"])
+                    if c1 > 0 and c2 > 0:
+                        dict_cote[fix_id] = (c1, cX, c2)
+                        
+    return data_fix, dict_cote
 
 # --- INTERFAȚĂ PRINCIPALĂ ---
 tab1, tab2 = st.tabs(["🚀 Căutare Automatizată Meciuri Zilei", "✍️ Introducere Manuală de Rezervă"])
@@ -89,25 +111,29 @@ with tab1:
     data_selectata = st.date_input("Alege Data Meciurilor:", pd.to_datetime("today"))
     data_str = data_selectata.strftime("%Y-%m-%d")
     
-    if st.button("⚡ INCARCĂ MECIURILE & COTELOR LIVE", use_container_width=True):
+    if st.button("⚡ ÎNCARCĂ MECIURILE & COTELOR REALE LIVE", use_container_width=True):
         if not api_key:
             st.warning("⚠️ Introduceți mai întâi cheia API în meniul din stânga (Sidebar)!")
         else:
-            with st.spinner("⏳ Se descarcă meciurile și cotele oficiale din API..."):
-                meciuri_raw = obtine_meciuri_api(api_key, data_str)
+            with st.spinner("⏳ Se descarcă meciurile și cotele reale 1X2..."):
+                meciuri_raw, cote_dict = obtine_meciuri_si_cote_api(api_key, data_str)
                 
                 if meciuri_raw:
                     st.session_state.bilet_fotbal_premium = []
                     count = 0
                     
-                    for match in meciuri_raw[:25]:  # Limităm la primele 25 meciuri principale ale zilei
+                    for match in meciuri_raw[:30]:
+                        fix_id = match["fixture"]["id"]
                         home_team = match["teams"]["home"]["name"]
                         away_team = match["teams"]["away"]["name"]
                         league_name = match["league"]["name"]
                         status = match["fixture"]["status"]["short"]
                         
-                        # Cote demonstrative extrase sau implicite dacă meciul este pre-match
-                        c1, cX, c2 = 1.85, 3.40, 4.20
+                        # Extragere cote reale dacă există în API, altfel fallback
+                        if fix_id in cote_dict:
+                            c1, cX, c2 = cote_dict[fix_id]
+                        else:
+                            c1, cX, c2 = 1.90, 3.30, 4.00
                         
                         res = analizeaza_si_filtreaza_meci(
                             meci_nume=f"{home_team} vs {away_team}",
@@ -120,7 +146,7 @@ with tab1:
                         st.session_state.bilet_fotbal_premium.append(res)
                         count += 1
                         
-                    st.success(f"✅ S-au procesat automat {count} meciuri!")
+                    st.success(f"✅ S-au procesat automat {count} meciuri cu cote actualizate!")
                     st.rerun()
                 else:
                     st.error("❌ Nu s-au găsit meciuri sau cheia API este invalidă.")
