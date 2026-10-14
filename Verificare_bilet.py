@@ -4,84 +4,93 @@ import io
 import re
 from pypdf import PdfReader
 
-# Configurare interfață mobil premium
+# Configurare interfață Streamlit
 st.set_page_config(page_title="Scanner Probabilități Pro", layout="wide", page_icon="📊")
 
 st.markdown("<h1 style='text-align: center;'>📊 Verificator Automat Bilet VIP</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: #4CAF50;'>Incarcă biletul PDF sau introdu textul biletului</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #4CAF50;'>Încarcă biletul PDF Superbet sau dă Paste la text mai jos</p>", unsafe_allow_html=True)
 st.write("---")
 
+# Session state pentru păstrarea datelor
 if "bilet_automat" not in st.session_state:
     st.session_state.bilet_automat = []
 
 def parseaza_pdf_superbet(text_raw):
     """
-    Transformă textul brut și împrăștiat din PDF-ul Superbet în format curat:
-    Echipa1 - Echipa2 | Pronostic | Cota
+    Parser dedicat pentru PDF-urile Superbet ("Pariurile mele.pdf").
+    Identifică corect echipele, pronosticurile combinate și cotele fiecărui meci.
     """
-    linii = [l.strip() for l in text_raw.split("\n") if l.strip()]
-    linii_curate = []
+    # Curățăm caracterele speciale din fontul Superbet
+    text_curat = text_raw.replace('', '').replace('', '').replace('', '')
+    linii = [l.strip() for l in text_curat.split('\n') if l.strip()]
     
-    # Încercăm să grupăm blocurile de meciuri
-    # Într-un PDF Superbet, un meci are: Echipa 1, Echipa 2, Cota, Opțiunile de pariu
-    i = 0
-    n = len(linii)
+    # Elemente de ignorat pentru a nu le confunda cu echipele
+    cuvinte_ignorate = [
+        "BET BUILDER", "A ctiv", "Activ", "ST A TUS", "Status", 
+        "COT Ă TOT A L Ă", "COTĂ TOTALĂ", "B A NI RE A LI", "BANI REALI",
+        "CÂȘTIG POTENȚIAL", "Interval goluri", "GG sau Peste", "Repriza",
+        "International tineret", "UEFA", "Youth League", "Pariurile mele",
+        "https://", "RON", "Sport", "Simplu", "Da", "Nu"
+    ]
     
-    while i < n:
-        # Căutăm o cotă (ex: 1.45)
-        cota_match = re.match(r"^(\d+\.\d{2})$", linii[i])
-        
-        # Dacă am găsit o cotă, analizăm rândurile din jur pentru meci și pronostic
-        if cota_match:
-            cota = cota_match.group(1)
+    # Tăiem antetul biletului până la primul meci
+    idx_start = 0
+    for idx, l in enumerate(linii):
+        if "A ctiv" in l or "Activ" in l:
+            idx_start = idx + 1
+            break
             
-            # Căutăm în sus echipele (de obicei sunt cu 2-5 rânduri mai sus)
-            echipe = ""
-            pronosticuri = []
-            
-            # Mergem înapoi pentru a găsi numele echipelor
-            idx_sus = i - 1
-            candidați_echipe = []
-            while idx_sus >= 0 and len(candidați_echipe) < 2:
-                txt = linii[idx_sus]
-                # Excludem cuvinte cheie de sistem
-                if not any(k in txt for k in ["COT", "BAN", "ST A TUS", "A ctiv", "BET BUILDER", "R1", "0", "1", "2"]):
-                    if len(txt) > 2 and not txt.isdigit():
-                        candidați_echipe.insert(0, txt)
-                idx_sus -= 1
-            
-            if len(candidați_echipe) >= 2:
-                echipe = f"{candidați_echipe[0]} - {candidați_echipe[1]}"
-            
-            # Mergem înainte pentru a colecta opțiunile de pariere (ex: "2-5", "GG sau Peste 2.5 goluri")
-            idx_jos = i + 1
-            while idx_jos < n and idx_jos < i + 6:
-                txt = linii[idx_jos]
-                if "BET BUILDER" in txt or "Repriza" in txt or "International" in txt or "UEF" in txt:
-                    break
-                if txt not in ["0", "Da", "Nu"] and not re.match(r"^\d+$", txt):
-                    pronosticuri.append(txt)
-                idx_jos += 1
-            
-            prono_str = " & ".join(pronosticuri) if pronosticuri else "Pariu Combo"
-            
-            if echipe:
-                linii_curate.append(f"{echipe} | {prono_str} | {cota}")
-                
-        i += 1
-        
-    if linii_curate:
-        # Eliminăm duplicatele păstrând ordinea
-        rezultat_unic = []
-        for l in linii_curate:
-            if l not in rezultat_unic:
-                rezultat_unic.append(l)
-        return "\n".join(rezultat_unic)
+    linii_meciuri = linii[idx_start:]
     
-    return ""
+    # Împărțim biletul în blocuri per meci
+    blocuri_meci = []
+    bloc_curent = []
+    
+    for linie in linii_meciuri:
+        bloc_curent.append(linie)
+        if "BET BUILDER" in linie or "https://" in linie:
+            blocuri_meci.append(list(bloc_curent))
+            bloc_curent = []
+            
+    if bloc_curent:
+        blocuri_meci.append(bloc_curent)
 
-# --- PASUL 1: ÎNCĂRCARE PDF SAU INTRODUCERE TEXT ---
-st.markdown("### 📋 Pasul 1: Incarcă biletul PDF sau lipeste textul")
+    linii_rezultat = []
+
+    for bloc in blocuri_meci:
+        echipe = []
+        cota = None
+        pronosticuri = []
+        
+        for l in bloc:
+            # Identificare cotă meci (ex: 1.45)
+            if re.match(r"^\d+\.\d{2}$", l) and not cota:
+                cota_val = float(l)
+                if cota_val < 50.0:  # Ignorăm cota totală
+                    cota = l
+                    continue
+            
+            # Verificăm dacă linia reprezintă o echipă
+            este_zgomot = any(z.lower() in l.lower() for z in cuvinte_ignorate)
+            este_numar = l.isdigit() or re.match(r"^\d+-\d+$", l) or re.match(r"^\d+\.\d+$", l)
+            
+            if not este_zgomot and not este_numar and len(l) > 2:
+                if len(echipe) < 2:
+                    echipe.append(l)
+            # Daca e detaliu de pariu (ex: "2-5", "GG sau Peste 2.5 goluri")
+            elif ("2-5" in l or "GG" in l or "Peste" in l) and not este_zgomot:
+                if l not in pronosticuri:
+                    pronosticuri.append(l)
+
+        if len(echipe) == 2 and cota:
+            nume_meci = f"{echipe[0]} - {echipe[1]}"
+            prono_text = " & ".join(pronosticuri) if pronosticuri else "Bet Builder"
+            linii_rezultat.append(f"{nume_meci} | {prono_text} | {cota}")
+
+    return "\n".join(linii_rezultat)
+
+# --- PASUL 1: INCĂRCARE PDF SAU INTRODUCERE TEXT ---
+st.markdown("### 📋 Pasul 1: Încarcă biletul PDF sau lipeste textul")
 
 uploaded_file = st.file_uploader("📄 Încarcă biletul în format PDF (Superbet)", type=["pdf"])
 
@@ -94,30 +103,30 @@ if uploaded_file is not None:
         for page in reader.pages:
             pdf_text += page.extract_text() + "\n"
         
-        # Încercăm conversia automată în format curat
+        # Procesare și curățare text din PDF
         text_curatat = parseaza_pdf_superbet(pdf_text)
         
         if text_curatat:
             text_initial = text_curatat
-            st.success("✅ Biletul din PDF a fost extras și formatat automat!")
+            st.success("✅ PDF extras și formatat cu succes!")
         else:
             text_initial = pdf_text
-            st.warning("⚠️ Am citit PDF-ul, dar te rugăm să verifici formatarea textului mai jos.")
+            st.warning("⚠️ Am citit PDF-ul, dar te rugăm să verifici/editezi textul mai jos.")
             
     except Exception as e:
-        st.error(f"Eroare la citirea PDF-ului: {e}")
+        st.error(f"Eroare la citirea fișierului PDF: {e}")
 
 text_bilet = st.text_area(
-    "Text formatat automat (îl poți edita dacă dorești):",
-    value=text_initial if text_initial else "Slovan Bratislava U19 - Stuttgart U19 | GG sau P2.5 & 2-5 goluri | 1.45\nAS Roma U19 - Real Madrid U19 | GG sau P2.5 & 2-5 goluri | 1.45",
+    "Text formatat (verifică datele extrase mai jos):",
+    value=text_initial if text_initial else "Slovan Bratislava U19 - Stuttgart U19 | 2-5 & GG sau Peste 2.5 goluri | 1.45\nAS Roma U19 - Real Madrid U19 | 2-5 & GG sau Peste 2.5 goluri | 1.45",
     height=150
 )
 
 col_miza, col_btn = st.columns([1, 2])
 with col_miza:
-    miza_simulata = st.number_input("💰 Introdu miza biletului (RON):", min_value=1.0, value=8.50, step=0.5)
+    miza_simulata = st.number_input("💰 Introdu miza biletului (RON):", min_value=1.0, value=8.50, step=0.50)
 
-# Buton Procesare
+# --- PASUL 2: PROCESARE ȘI CALCUL ---
 if st.button("⚡ SCANEAZĂ BILETUL ȘI CALCULEAZĂ PROCENTELE", use_container_width=True):
     linii = text_bilet.strip().split("\n")
     lista_meciuri_temporara = []
@@ -170,7 +179,7 @@ if st.button("⚡ SCANEAZĂ BILETUL ȘI CALCULEAZĂ PROCENTELE", use_container_w
     st.session_state.bilet_automat = lista_meciuri_temporara
     st.success(f"✅ Am identificat și procesat {len(lista_meciuri_temporara)} meciuri de pe bilet!")
 
-# --- AFIȘARE REZULTATE ---
+# --- PASUL 3: AFIȘARE REZULTATE ȘI BILET FINAL ---
 if st.session_state.bilet_automat:
     st.write("---")
     st.markdown("### 🔍 Anatomia Biletului Tău:")
@@ -178,6 +187,7 @@ if st.session_state.bilet_automat:
     df_afisare = pd.DataFrame(st.session_state.bilet_automat)
     st.dataframe(df_afisare.drop(columns=["prob_num"]), use_container_width=True)
     
+    # Calcul valori agregate
     cota_totala = 1.0
     prob_compusa = 1.0
     for m in st.session_state.bilet_automat:
@@ -188,6 +198,7 @@ if st.session_state.bilet_automat:
     castig_potential = cota_totala * miza_simulata
     valoare_matematica = castig_potential * (procent_final / 100)
 
+    # Panou Rezultate Finale
     st.write("---")
     st.markdown("<h3 style='text-align: center;'>🏆 Rezultate Calcul Matematice</h3>", unsafe_allow_html=True)
     
@@ -198,3 +209,26 @@ if st.session_state.bilet_automat:
         st.metric(label="🎯 PROBABILITATE REUȘITĂ", value=f"{procent_final}%")
     with c3:
         st.metric(label="💰 CÂȘTIG POTENȚIAL", value=f"{castig_potential:.2f} RON")
+        
+    st.write("")
+    if procent_final >= 50:
+        st.success(f"🟩 **Verdict: Bilet Foarte Solid.** Din punct de vedere matematic, valoarea reală estimată a biletului tău este de **{valoare_matematica:.2f} RON**.")
+    elif 15 <= procent_final < 50:
+        st.warning(f"🟨 **Verdict: Bilet Echilibrat (Combo).** Șanse moderate ({procent_final}%). Valoarea reală ponderată este de **{valoare_matematica:.2f} RON**.")
+    else:
+        st.error(f"🟥 **Verdict: Tip 'Bombă' (Risc Maxim).** Probabilitate mică de **{procent_final}%**.")
+
+    # Descărcare Raport Excel
+    buffer = io.BytesIO()
+    with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+        df_afisare.drop(columns=["prob_num"]).to_excel(writer, index=False, sheet_name='Analiza Procente')
+    excel_data = buffer.getvalue()
+    
+    st.write("")
+    st.download_button(
+        label="🟢 EXPORTĂ BILETUL ÎN EXCEL",
+        data=excel_data,
+        file_name="Analiza_VIP_Bilet.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True
+    )
