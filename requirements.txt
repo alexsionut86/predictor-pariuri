@@ -3,3 +3,4 @@ pandas
 pytz
 openpyxl
 pypdf
+pdfplumber
