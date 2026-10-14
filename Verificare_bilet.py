@@ -2,31 +2,52 @@ import streamlit as st
 import pandas as pd
 import io
 import re
+from pypdf import PdfReader  # Am adăugat cititorul PDF
 
 # Configurare interfață mobil premium
 st.set_page_config(page_title="Scanner Probabilități Pro", layout="wide", page_icon="📊")
 
 st.markdown("<h1 style='text-align: center;'>📊 Verificator Automat Bilet VIP</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: #4CAF50;'>Metoda Rapidă: Copiază biletul din agenție și dă Paste mai jos</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #4CAF50;'>Incarcă biletul în format PDF sau dă Paste la text mai jos</p>", unsafe_allow_html=True)
 st.write("---")
 
 # Structură stocare meciuri
 if "bilet_automat" not in st.session_state:
     st.session_state.bilet_automat = []
 
-# --- CALCULATOR RAPID PRIN COPY-PASTE ---
-st.markdown("### 📋 Pasul 1: Pune biletul copiat (sau scrie meciurile sub formă de text)")
-text_bilet = st.text_area(
-    "Exemplu format recunoscut: Nume Meci | Pronostic | Cotă (Fiecare meci pe un rând nou)",
-    value="Olanda - Uzbekistan | Peste 1.5 | 1.17\nSri Lanka - Bhutan | PsF X | 1.37\nFranta - Irlanda de Nord | Peste 2.5 | 1.41",
-    height=150
-)
+# --- PASUL 1: INCĂRCARE PDF SAU INTRODUCERE TEXT ---
+st.markdown("### 📋 Pasul 1: Adaugă biletul (PDF sau Text)")
+
+col_pdf, col_text = st.columns([1, 1])
+
+text_bilet = ""
+
+with col_pdf:
+    uploaded_file = st.file_uploader("📄 Încarcă biletul în format PDF", type=["pdf"])
+    if uploaded_file is not None:
+        try:
+            reader = PdfReader(uploaded_file)
+            pdf_text = ""
+            for page in reader.pages:
+                pdf_text += page.extract_text() + "\n"
+            text_bilet = pdf_text
+            st.success("✅ Text extras cu succes din PDF!")
+        except Exception as e:
+            st.error(f"Eroare la citirea PDF-ului: {e}")
+
+with col_text:
+    # Dacă s-a extras text din PDF, îl folosim pe acela; altfel lăsăm posibilitatea de Paste
+    text_bilet = st.text_area(
+        "Sau introdu/editează textul biletului:",
+        value=text_bilet if text_bilet else "Olanda - Uzbekistan | Peste 1.5 | 1.17\nSri Lanka - Bhutan | PsF X | 1.37\nFranta - Irlanda de Nord | Peste 2.5 | 1.41",
+        height=150
+    )
 
 col_miza, col_btn = st.columns([1, 2])
 with col_miza:
     miza_simulata = st.number_input("💰 Introdu miza biletului (RON):", min_value=1.0, value=10.0, step=1.0)
 
-# Buton Procesare Text
+# Buton Procesare Text / PDF
 if st.button("⚡ SCANEAZĂ BILETUL ȘI CALCULEAZĂ PROCENTELE", use_container_width=True):
     linii = text_bilet.strip().split("\n")
     lista_meciuri_temporara = []
@@ -35,7 +56,7 @@ if st.button("⚡ SCANEAZĂ BILETUL ȘI CALCULEAZĂ PROCENTELE", use_container_w
         if not linie.strip():
             continue
         
-        # Încercăm să despărțim linia după caractere comune (|, camă, tab sau spații mari)
+        # Încercăm să despărțim linia după caractere comune (|, comă, tab sau spații mari)
         parti = [p.strip() for p in re.split(r'[|,\t]', linie) if p.strip()]
         
         # Dacă linia are formatul standard: Meci | Pronostic | Cotă
@@ -43,8 +64,8 @@ if st.button("⚡ SCANEAZĂ BILETUL ȘI CALCULEAZĂ PROCENTELE", use_container_w
             nume = parti[0]
             prono = parti[1]
             try:
-                # Extragem ultima parte ca fiind cota
-                cota = float(parti[2])
+                # Extragem ultima parte ca fiind cota (înlocuim eventuala virgulă cu punct)
+                cota = float(parti[2].replace(',', '.'))
             except ValueError:
                 cota = 1.50
         # Dacă a pus doar Meci și Cotă (ex: FCSB - CFR 1.70)
@@ -52,14 +73,15 @@ if st.button("⚡ SCANEAZĂ BILETUL ȘI CALCULEAZĂ PROCENTELE", use_container_w
             nume = parti[0]
             prono = "Nespecificat"
             try:
-                cota = float(parti[1])
+                cota = float(parti[1].replace(',', '.'))
             except ValueError:
                 cota = 1.50
         else:
             # Încercăm să căutăm o cotă (număr zecimal) la finalul liniei prin regex
-            cota_match = re.search(r"[-+]?\d*\.\d+|\d+", linie)
+            cota_match = re.search(r"[-+]?\d*[.,]\d+|\d+", linie)
             if cota_match:
-                cota = float(cota_match.group())
+                cota_str = cota_match.group().replace(',', '.')
+                cota = float(cota_str)
                 nume = linie.replace(cota_match.group(), "").strip()
                 prono = "Eveniment"
             else:
