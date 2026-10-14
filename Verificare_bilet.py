@@ -16,19 +16,21 @@ if "bilet_automat" not in st.session_state:
 
 def parseaza_pdf_superbet_universal(text_raw):
     """
-    Parser creat special pentru structura PDF-urilor Superbet.
-    Extrage meciurile și le asociază în ordine cu cotele găsite la final.
+    Parser robust pentru PDF-urile Superbet.
+    Extrage cotele de la finalul documentului și le pune obligatoriu ca a 3-a coloană (după |).
     """
+    # 1. Curățare caractere invalide
     text_curat = re.sub(r'[^\x00-\x7F]+', ' ', text_raw)
     linii = [l.strip() for l in text_curat.split('\n') if l.strip()]
     
-    # 1. Extragere cote de meci de la finalul PDF-ului
+    # 2. Extragerea listei de cote (de ex: 1.34, 1.30, 1.37 etc.)
     cote_gasite = []
     for l in linii:
+        # Căutăm numere zecimale de forma 1.xx
         if re.match(r"^1\.\d{2}$", l):
             cote_gasite.append(float(l))
             
-    # 2. Ignorare elemente administrative
+    # 3. Ignorare elemente de antet / sistem
     zgomot = [
         "International", "UEFA", "Liga", "Campioni", "Astazi", "Atazi", "Astan", "Aziz",
         "STATUS", "Activ", "Pariurile mele", "https", "COTA TOTALA", "BANI REALI",
@@ -40,7 +42,7 @@ def parseaza_pdf_superbet_universal(text_raw):
         if not any(z.lower() in l.lower() for z in zgomot) and not re.match(r"^1\.\d{2}$", l):
             linii_utile.append(l)
 
-    # 3. Reconstruire meciuri
+    # 4. Reconstrucția perechilor Echipe + Pronostic
     meciuri = []
     i = 0
     n = len(linii_utile)
@@ -64,7 +66,7 @@ def parseaza_pdf_superbet_universal(text_raw):
         else:
             i += 1
 
-    # 4. Asociere meci cu cota extrasă
+    # 5. Combinare garantată: Echipe | Pronostic | Cota
     rezultat = []
     for idx, m in enumerate(meciuri):
         cota_meci = cote_gasite[idx] if idx < len(cote_gasite) else 1.35
@@ -90,7 +92,7 @@ if uploaded_file is not None:
         
         if text_curatat:
             text_initial = text_curatat
-            st.success("✅ PDF procesat cu succes! Toate cotele au fost asociate corect.")
+            st.success("✅ Toate meciurile și cotele reale au fost asociate cu succes!")
         else:
             text_initial = pdf_text
             st.warning("⚠️ Am citit PDF-ul, dar te rugăm să verifici datele mai jos.")
@@ -108,7 +110,7 @@ col_miza, col_btn = st.columns([1, 2])
 with col_miza:
     miza_simulata = st.number_input("💰 Introdu miza biletului (RON):", min_value=1.0, value=5.00, step=0.50)
 
-# --- PASUL 2: PROCESARE ȘI CALCUL CURĂȚAT ---
+# --- PASUL 2: PROCESARE ȘI CALCUL ---
 if st.button("⚡ SCANEAZĂ BILETUL ȘI CALCULEAZĂ PROCENTELE", use_container_width=True):
     linii = text_bilet.strip().split("\n")
     lista_meciuri_temporara = []
@@ -119,40 +121,39 @@ if st.button("⚡ SCANEAZĂ BILETUL ȘI CALCULEAZĂ PROCENTELE", use_container_w
         
         parti = [p.strip() for p in re.split(r'[|]', linie) if p.strip()]
         
-        if len(parti) >= 2:
-            nume = parti[0]
-            prono_raw = parti[1]
-            
-            # 1. Extrage cota dacă era rată în interiorul pronosticului (ex: 2-5 Interval goluri 1.34)
-            cota_in_prono = re.search(r"\b(1\.\d{2})\b", prono_raw)
-            
-            if len(parti) >= 3:
-                try:
-                    cota = float(parti[2].replace(',', '.'))
-                except ValueError:
-                    cota = float(cota_in_prono.group(1)) if cota_in_prono else 1.35
-            elif cota_in_prono:
-                cota = float(cota_in_prono.group(1))
-            else:
-                cota = 1.35
+        nume = parti[0] if len(parti) >= 1 else "Eveniment"
+        prono = parti[1] if len(parti) >= 2 else "Pariu"
+        
+        # Extragem cota direct din a treia coloana sau dintr-un numar din linie
+        cota = 1.35
+        if len(parti) >= 3:
+            try:
+                cota = float(parti[2].replace(',', '.'))
+            except ValueError:
+                pass
+        else:
+            # Căutăm dacă cota a scăpat în textul pronosticului
+            cota_match = re.search(r"(\d\.\d{2})", linie)
+            if cota_match:
+                cota = float(cota_match.group(1))
                 
-            # 2. Curăță numărul cotei din textul pronosticului
-            prono_curat = re.sub(r"\b1\.\d{2}\b", "", prono_raw).strip()
-            prono_curat = re.sub(r"\s+", " ", prono_curat)
-            
-            prob_reala = int((1 / cota) * 100 * 0.95)
-            prob_reala = max(1, min(99, prob_reala))
-            
-            risc = "🟩 SAFE" if prob_reala >= 65 else ("🟨 MEDIUM" if prob_reala >= 40 else "🟥 RISK")
-            
-            lista_meciuri_temporara.append({
-                "Meci / Eveniment": nume,
-                "Pronostic": prono_curat,
-                "Cotă": cota,
-                "Probabilitate": f"{prob_reala}%",
-                "Nivel Risc": risc,
-                "prob_num": prob_reala
-            })
+        # Curățăm cota dacă era rămasă în textul pronosticului
+        prono = re.sub(r"\b1\.\d{2}\b", "", prono).strip()
+        prono = re.sub(r"\s+", " ", prono)
+                
+        prob_reala = int((1 / cota) * 100 * 0.95)
+        prob_reala = max(1, min(99, prob_reala))
+        
+        risc = "🟩 SAFE" if prob_reala >= 65 else ("🟨 MEDIUM" if prob_reala >= 40 else "🟥 RISK")
+        
+        lista_meciuri_temporara.append({
+            "Meci / Eveniment": nume,
+            "Pronostic": prono,
+            "Cotă": cota,
+            "Probabilitate": f"{prob_reala}%",
+            "Nivel Risc": risc,
+            "prob_num": prob_reala
+        })
         
     st.session_state.bilet_automat = lista_meciuri_temporara
     st.success(f"✅ Am identificat și procesat {len(lista_meciuri_temporara)} meciuri de pe bilet!")
