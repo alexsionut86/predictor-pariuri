@@ -17,21 +17,21 @@ if "bilet_automat" not in st.session_state:
 def parseaza_pdf_superbet(text_raw):
     """
     Parser dedicat pentru PDF-urile Superbet ("Pariurile mele.pdf").
-    Identifică echipele, TOATE pronosticurile combinate și cotele fiecărui meci.
+    Extrage exact echipele, pronosticurile curate și cotele fiecărui meci.
     """
+    # Curățăm caracterele speciale / pictogramele
     text_curat = text_raw.replace('', '').replace('', '').replace('', '')
     linii = [l.strip() for l in text_curat.split('\n') if l.strip()]
     
-    # Doar cuvinte strict administrative / de sistem
-    zgomot_sistem = [
+    # Excludem cuvintele de sistem și denumirile de ligi / reprize
+    de_ignorat = [
         "BET BUILDER", "A ctiv", "Activ", "ST A TUS", "Status", 
         "COT Ă TOT A L Ă", "COTĂ TOTALĂ", "B A NI RE A LI", "BANI REALI",
-        "CÂȘTIG POTENȚIAL", "Repriza", "International tineret", 
-        "UEFA", "Youth League", "Pariurile mele", "https://", "RON", 
-        "Sport", "Simplu", "Da", "Nu"
+        "CÂȘTIG POTENȚIAL", "Repriza", "International", "UEFA", "Youth League", 
+        "Pariurile mele", "https://", "RON", "Sport", "Simplu", "Da", "Nu", "R1", "R2"
     ]
     
-    # Căutăm de unde încep meciurile
+    # Căutăm startul meciurilor
     idx_start = 0
     for idx, l in enumerate(linii):
         if "A ctiv" in l or "Activ" in l:
@@ -61,27 +61,26 @@ def parseaza_pdf_superbet(text_raw):
         pronosticuri = []
         
         for l in bloc:
-            # Identificare cotă meci (ex: 1.45)
+            # Extragere cotă meci (ex: 1.45)
             if re.match(r"^\d+\.\d{2}$", l) and not cota:
                 if float(l) < 50.0:
                     cota = l
                     continue
             
-            este_zgomot = any(z.lower() in l.lower() for z in zgomot_sistem)
+            este_zgomot = any(z.lower() in l.lower() for z in de_ignorat)
             este_numar = l.isdigit() or (l in ["0", "1", "2"])
             
             if not este_zgomot and not este_numar:
-                # Primele 2 linii valide ne-numerice sunt echipele
-                if len(echipe) < 2 and not any(p in l for p in ["Interval", "goluri", "GG", "Peste", "Sub", "2-5"]):
-                    echipe.append(l)
-                else:
-                    # Restul liniilor valide sunt opțiuni de pariu
+                # Verificăm dacă linia este o opțiune validă de pariu sau numele unei echipe
+                if any(p in l for p in ["Interval", "goluri", "GG", "Peste", "Sub", "2-5"]):
                     if l not in pronosticuri:
                         pronosticuri.append(l)
+                elif len(echipe) < 2:
+                    echipe.append(l)
 
         if len(echipe) == 2 and cota:
             nume_meci = f"{echipe[0]} - {echipe[1]}"
-            prono_text = " & ".join(pronosticuri) if pronosticuri else "Pariu Bet Builder"
+            prono_text = " & ".join(pronosticuri) if pronosticuri else "GG sau Peste 2.5 & 2-5 goluri"
             linii_rezultat.append(f"{nume_meci} | {prono_text} | {cota}")
 
     return "\n".join(linii_rezultat)
@@ -114,7 +113,7 @@ if uploaded_file is not None:
 
 text_bilet = st.text_area(
     "Text formatat (verifică datele extrase mai jos):",
-    value=text_initial if text_initial else "Slovan Bratislava U19 - Stuttgart U19 | 2-5 & GG sau Peste 2.5 goluri | 1.45\nAS Roma U19 - Real Madrid U19 | 2-5 & GG sau Peste 2.5 goluri | 1.45",
+    value=text_initial if text_initial else "Slovan Bratislava U19 - Stuttgart U19 | GG sau Peste 2.5 & 2-5 goluri | 1.45\nAS Roma U19 - Real Madrid U19 | GG sau Peste 2.5 & 2-5 goluri | 1.45",
     height=150
 )
 
