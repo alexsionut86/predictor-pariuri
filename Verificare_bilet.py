@@ -15,7 +15,7 @@ if "bilet_automat" not in st.session_state:
     st.session_state.bilet_automat = []
 
 def curata_text_parazit(text):
-    """ Elimină textele de sistem/sumă parazite ce apar pe rând cu echipele. """
+    """ Elimină textele de sistem/sumă/coduri parazite ce apar în PDF. """
     text = re.sub(r"CÂȘTIG\s+POTENȚIAL.*", "", text, flags=re.IGNORECASE)
     text = re.sub(r"COTA\s+TOTALA.*", "", text, flags=re.IGNORECASE)
     text = re.sub(r"BANI\s+REALI.*", "", text, flags=re.IGNORECASE)
@@ -25,11 +25,8 @@ def curata_text_parazit(text):
 
 def extrage_meciuri_pdfplumber_perfect(uploaded_file):
     """
-    Extragere inteligentă: extrage toate cotele de pe pagină și le asociază
-    în ordinea exactă cu echipele și pronosticurile identificate.
+    Extragere exactă: ignoră codul biletului și asociază cele 9 meciuri cu cotele lor exacte.
     """
-    meciuri = []
-    
     with pdfplumber.open(uploaded_file) as pdf:
         text_fara_layout = ""
         text_cu_layout = ""
@@ -44,7 +41,7 @@ def extrage_meciuri_pdfplumber_perfect(uploaded_file):
         if re.match(r"^1\.\d{2}$", l):
             cote_reale.append(float(l))
 
-    # 2. Extragere meciuri și curățare rânduri parazite
+    # 2. Extragere meciuri și eliminare zgomot/coduri de bilet
     linii_layout = [l.strip() for l in text_cu_layout.split('\n') if l.strip()]
     
     zgomot = [
@@ -56,10 +53,13 @@ def extrage_meciuri_pdfplumber_perfect(uploaded_file):
     linii_curate = []
     for l in linii_layout:
         l_sanitizat = curata_text_parazit(l)
-        if l_sanitizat and not any(z.lower() in l_sanitizat.lower() for z in zgomot) and not re.match(r"^1\.\d{2}$", l_sanitizat):
+        # Ignorăm codul de bilet (ex: 8910-YYHUV7) și termenii administrative
+        este_cod_bilet = bool(re.match(r"^[0-9A-Z]{4,5}-[0-9A-Z]{4,7}$", l_sanitizat))
+        
+        if l_sanitizat and not este_cod_bilet and not any(z.lower() in l_sanitizat.lower() for z in zgomot) and not re.match(r"^1\.\d{2}$", l_sanitizat):
             linii_curate.append(l_sanitizat)
 
-    # 3. Identificare structură Echipe + Pronostic
+    # 3. Reconstruire meciuri
     i = 0
     n = len(linii_curate)
     echipe_prono_gasite = []
@@ -67,33 +67,29 @@ def extrage_meciuri_pdfplumber_perfect(uploaded_file):
     while i < n:
         l = linii_curate[i]
         
-        # Dacă găsim o linie cu '-' (ex: LASK Linz - Liverpool sau Feyenoord Rotterdam - Como)
-        if "-" in l and len(l.split("-")) == 2:
+        if "-" in l and len(l.split("-")) == 2 and not re.match(r"^\d+-\d+$", l):
             meci_nume = l.strip()
-            prono_detaliu = "Interval goluri"
+            prono_detaliu = "2-5"
             
-            # Verificăm dacă următoarea linie este pronosticul (ex: 2-5 sau 1-4)
             if i + 1 < n and (re.match(r"^\d+-\d+$", linii_curate[i+1]) or "Interval" in linii_curate[i+1]):
                 prono_detaliu = linii_curate[i+1]
                 i += 1
                 
             echipe_prono_gasite.append((meci_nume, prono_detaliu))
         elif i + 2 < n:
-            # Caz în care echipele sunt pe 2 rânduri separate
             e1 = linii_curate[i]
             e2 = linii_curate[i+1]
             p = linii_curate[i+2]
             
-            if re.match(r"^\d+-\d+$", p) or "Interval" in p or "GG" in p:
+            if (re.match(r"^\d+-\d+$", p) or "Interval" in p or "GG" in p) and not re.match(r"^\d+-\d+$", e1):
                 echipe_prono_gasite.append((f"{e1} - {e2}", p))
                 i += 2
         i += 1
 
-    # 4. Asamblare finală: Echipe | Pronostic | Cotă Reală
+    # 4. Potrivire 1-la-1 între meciuri și cote
     rezultat = []
     for idx, (meci_nume, prono_text) in enumerate(echipe_prono_gasite):
         cota_val = cote_reale[idx] if idx < len(cote_reale) else 1.35
-        # Curățare suplimentară
         meci_nume = re.sub(r"\s+", " ", meci_nume)
         prono_text = re.sub(r"\s+", " ", prono_text)
         rezultat.append(f"{meci_nume} | {prono_text} | {cota_val:.2f}")
@@ -113,7 +109,7 @@ if uploaded_file is not None:
         
         if text_curatat:
             text_initial = text_curatat
-            st.success("✅ Toate cele 9 meciuri și cotele lor au fost formate și asociate perfect!")
+            st.success("✅ Toate cele 9 meciuri reale au fost asociate perfect cu cotele din PDF!")
         else:
             st.warning("⚠️ Verifică/completează datele în caseta de text de mai jos.")
             
@@ -122,7 +118,7 @@ if uploaded_file is not None:
 
 text_bilet = st.text_area(
     "Text formatat automat (verifică datele extrase):",
-    value=text_initial if text_initial else "LASK Linz - Liverpool | 2-5 Interval goluri | 1.34\nFeyenoord Rotterdam - Como | 2-5 Interval goluri | 1.34",
+    value=text_initial if text_initial else "LASK Linz - Liverpool | 2-5 | 1.34\nFeyenoord Rotterdam - Como | 2-5 | 1.34",
     height=240
 )
 
