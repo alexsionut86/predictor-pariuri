@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import io
 import re
-from pypdf import PdfReader
+import pdfplumber
 
 # Configurare interfață Streamlit
 st.set_page_config(page_title="Scanner Probabilități Pro", layout="wide", page_icon="📊")
@@ -14,67 +14,70 @@ st.write("---")
 if "bilet_automat" not in st.session_state:
     st.session_state.bilet_automat = []
 
-def parseaza_pdf_superbet_universal(text_raw):
+def extrage_meciuri_pdfplumber(uploaded_file):
     """
-    Parser robust pentru PDF-urile Superbet.
-    Extrage cotele de la finalul documentului și le pune obligatoriu ca a 3-a coloană (după |).
+    Extrage meciurile, pronosticurile și cotele exacte din PDF folosind pdfplumber.
+    Identifică cotele din dreapta paginii pe baza poziției vizuale.
     """
-    # 1. Curățare caractere invalide
-    text_curat = re.sub(r'[^\x00-\x7F]+', ' ', text_raw)
-    linii = [l.strip() for l in text_curat.split('\n') if l.strip()]
+    meciuri_gasite = []
     
-    # 2. Extragerea listei de cote (de ex: 1.34, 1.30, 1.37 etc.)
-    cote_gasite = []
-    for l in linii:
-        # Căutăm numere zecimale de forma 1.xx
-        if re.match(r"^1\.\d{2}$", l):
-            cote_gasite.append(float(l))
+    with pdfplumber.open(uploaded_file) as pdf:
+        for page in pdf.pages:
+            text = page.extract_text(layout=True)
+            if not text:
+                continue
+                
+            linii = text.split('\n')
             
-    # 3. Ignorare elemente de antet / sistem
-    zgomot = [
-        "International", "UEFA", "Liga", "Campioni", "Astazi", "Atazi", "Astan", "Aziz",
-        "STATUS", "Activ", "Pariurile mele", "https", "COTA TOTALA", "BANI REALI",
-        "SUPERBONUS", "CASTIG POTENTIAL", "RON", "Sport", "Simplu", "10/14/", "1/1", "Atzi"
-    ]
-    
-    linii_utile = []
-    for l in linii:
-        if not any(z.lower() in l.lower() for z in zgomot) and not re.match(r"^1\.\d{2}$", l):
-            linii_utile.append(l)
-
-    # 4. Reconstrucția perechilor Echipe + Pronostic
-    meciuri = []
-    i = 0
-    n = len(linii_utile)
-    
-    while i < n - 2:
-        e1 = linii_utile[i]
-        e2 = linii_utile[i+1]
-        p = linii_utile[i+2]
-        
-        if re.match(r"^\d+-\d+$", p) or any(k in p for k in ["GG", "Peste", "Sub"]):
-            detaliu = ""
-            if i + 3 < n and "Interval" in linii_utile[i+3]:
-                detaliu = f" ({linii_utile[i+3]})"
-                i += 1
+            # Caută numerele de cote (ex: 1.34, 1.30, 1.37)
+            i = 0
+            n = len(linii)
             
-            meciuri.append({
-                "echipe": f"{e1} - {e2}",
-                "prono": f"{p}{detaliu}"
-            })
-            i += 3
-        else:
-            i += 1
+            # Păstrăm liniile curate
+            linii_curate = []
+            for l in linii:
+                l_str = l.strip()
+                if l_str and not any(k in l_str for k in ["COTA TOTALA", "BANI REALI", "SUPERBONUS", "CASTIG POTENTIAL", "STATUS", "Pariurile mele"]):
+                    linii_curate.append(l_str)
+                    
+            # Parcurgem liniile pentru a grupa Echipe + Pronostic + Cotă
+            idx = 0
+            while idx < len(linii_curate):
+                linie = linii_curate[idx]
+                
+                # Căutăm linii care conțin cote la final (de ex: "1.34" sau "2-5           1.34")
+                cota_match = re.search(r"\b(1\.\d{2})\b", linie)
+                
+                if cota_match:
+                    cota_val = float(cota_match.group(1))
+                    
+                    # Ne uităm în sus pentru a găsi echipele și pronosticul
+                    prono = re.sub(r"\b1\.\d{2}\b", "", linie).strip()
+                    
+                    echipe = []
+                    # Mergem înapoi 1-3 rânduri pentru echipe
+                    for back in range(1, 4):
+                        if idx - back >= 0:
+                            l_prev = linii_curate[idx - back]
+                            if not re.search(r"\b1\.\d{2}\b", l_prev) and len(l_prev) > 3:
+                                echipe.insert(0, l_prev)
+                                
+                    if len(echipe) >= 2:
+                        nume_meci = f"{echipe[-2]} - {echipe[-1]}"
+                        prono_text = prono if prono else "Interval goluri"
+                        meciuri_gasite.append(f"{nume_meci} | {prono_text} | {cota_val:.2f}")
+                        
+                idx += 1
+                
+    # Dacă s-au găsit duplicate din cauza layout-ului, le filtrăm
+    meciuri_unice = []
+    for m in meciuri_gasite:
+        if m not in meciuri_unice:
+            meciuri_unice.append(m)
+            
+    return "\n".join(meciuri_unice)
 
-    # 5. Combinare garantată: Echipe | Pronostic | Cota
-    rezultat = []
-    for idx, m in enumerate(meciuri):
-        cota_meci = cote_gasite[idx] if idx < len(cote_gasite) else 1.35
-        rezultat.append(f"{m['echipe']} | {m['prono']} | {cota_meci:.2f}")
-
-    return "\n".join(rezultat)
-
-# --- PASUL 1: INCĂRCARE PDF SAU INTRODUCERE TEXT ---
+# --- PASUL 1: ÎNCĂRCARE PDF SAU TEXT ---
 st.markdown("### 📋 Pasul 1: Încarcă biletul PDF sau lipeste textul")
 
 uploaded_file = st.file_uploader("📄 Încarcă biletul în format PDF (Superbet)", type=["pdf"])
@@ -83,26 +86,20 @@ text_initial = ""
 
 if uploaded_file is not None:
     try:
-        reader = PdfReader(uploaded_file)
-        pdf_text = ""
-        for page in reader.pages:
-            pdf_text += page.extract_text() + "\n"
-        
-        text_curatat = parseaza_pdf_superbet_universal(pdf_text)
+        text_curatat = extrage_meciuri_pdfplumber(uploaded_file)
         
         if text_curatat:
             text_initial = text_curatat
-            st.success("✅ Toate meciurile și cotele reale au fost asociate cu succes!")
+            st.success("✅ PDF procesat cu succes prin pdfplumber! Cotele au fost extrase precis.")
         else:
-            text_initial = pdf_text
-            st.warning("⚠️ Am citit PDF-ul, dar te rugăm să verifici datele mai jos.")
+            st.warning("⚠️ Nu am putut extrage automat cotele. Te rugăm să introduci textul manual.")
             
     except Exception as e:
-        st.error(f"Eroare la citirea fișierului PDF: {e}")
+        st.error(f"Eroare la citirea PDF-ului: {e}")
 
 text_bilet = st.text_area(
     "Text formatat automat (verifică datele extrase):",
-    value=text_initial if text_initial else "LASK Linz - Liverpool | 2-5 (Interval goluri) | 1.34\nFeyenoord Rotterdam - Como | 2-5 (Interval goluri) | 1.34",
+    value=text_initial if text_initial else "LASK Linz - Liverpool | 2-5 Interval goluri | 1.34\nFeyenoord Rotterdam - Como | 2-5 Interval goluri | 1.34",
     height=220
 )
 
@@ -119,27 +116,24 @@ if st.button("⚡ SCANEAZĂ BILETUL ȘI CALCULEAZĂ PROCENTELE", use_container_w
         if not linie.strip():
             continue
         
-        parti = [p.strip() for p in re.split(r'[|]', linie) if p.strip()]
+        parti = [p.strip() for p in linie.split('|') if p.strip()]
         
-        nume = parti[0] if len(parti) >= 1 else "Eveniment"
-        prono = parti[1] if len(parti) >= 2 else "Pariu"
-        
-        # Extragem cota direct din a treia coloana sau dintr-un numar din linie
-        cota = 1.35
         if len(parti) >= 3:
+            nume = parti[0]
+            prono = parti[1]
             try:
                 cota = float(parti[2].replace(',', '.'))
             except ValueError:
-                pass
+                cota = 1.35
+        elif len(parti) == 2:
+            nume = parti[0]
+            prono = "Eveniment"
+            try:
+                cota = float(parti[1].replace(',', '.'))
+            except ValueError:
+                cota = 1.35
         else:
-            # Căutăm dacă cota a scăpat în textul pronosticului
-            cota_match = re.search(r"(\d\.\d{2})", linie)
-            if cota_match:
-                cota = float(cota_match.group(1))
-                
-        # Curățăm cota dacă era rămasă în textul pronosticului
-        prono = re.sub(r"\b1\.\d{2}\b", "", prono).strip()
-        prono = re.sub(r"\s+", " ", prono)
+            continue
                 
         prob_reala = int((1 / cota) * 100 * 0.95)
         prob_reala = max(1, min(99, prob_reala))
