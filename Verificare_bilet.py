@@ -14,6 +14,9 @@ st.write("---")
 if "bilet_automat" not in st.session_state:
     st.session_state.bilet_automat = []
 
+if "cod_bilet_detecat" not in st.session_state:
+    st.session_state.cod_bilet_detecat = ""
+
 def curata_text_parazit(text):
     """ Elimină textele de sistem/sumă/coduri parazite ce apar în PDF. """
     text = re.sub(r"CÂȘTIG\s+POTENȚIAL.*", "", text, flags=re.IGNORECASE)
@@ -25,7 +28,8 @@ def curata_text_parazit(text):
 
 def extrage_meciuri_pdfplumber_perfect(uploaded_file):
     """
-    Extragere exactă: ignoră codul biletului și asociază cele 9 meciuri cu cotele lor exacte.
+    Extragere exactă: ignoră codul biletului din meciuri, extrage codul biletului separat
+    și asociază cele 9 meciuri reale cu cotele lor exacte.
     """
     with pdfplumber.open(uploaded_file) as pdf:
         text_fara_layout = ""
@@ -33,6 +37,11 @@ def extrage_meciuri_pdfplumber_perfect(uploaded_file):
         for page in pdf.pages:
             text_fara_layout += (page.extract_text() or "") + "\n"
             text_cu_layout += (page.extract_text(layout=True) or "") + "\n"
+
+    # Căutare cod bilet Superbet (ex: 8910-YYHUV7)
+    cod_match = re.search(r"\b([0-9A-Z]{4,5}-[0-9A-Z]{4,7})\b", text_fara_layout)
+    if cod_match:
+        st.session_state.cod_bilet_detecat = cod_match.group(1)
 
     # 1. Extragere cote reale (numere de tip 1.xx)
     linii_raw = [l.strip() for l in text_fara_layout.split('\n') if l.strip()]
@@ -53,7 +62,6 @@ def extrage_meciuri_pdfplumber_perfect(uploaded_file):
     linii_curate = []
     for l in linii_layout:
         l_sanitizat = curata_text_parazit(l)
-        # Ignorăm codul de bilet (ex: 8910-YYHUV7) și termenii administrative
         este_cod_bilet = bool(re.match(r"^[0-9A-Z]{4,5}-[0-9A-Z]{4,7}$", l_sanitizat))
         
         if l_sanitizat and not este_cod_bilet and not any(z.lower() in l_sanitizat.lower() for z in zgomot) and not re.match(r"^1\.\d{2}$", l_sanitizat):
@@ -109,7 +117,7 @@ if uploaded_file is not None:
         
         if text_curatat:
             text_initial = text_curatat
-            st.success("✅ Toate cele 9 meciuri reale au fost asociate perfect cu cotele din PDF!")
+            st.success("✅ PDF procesat cu succes! Meciurile și cotele au fost asociate.")
         else:
             st.warning("⚠️ Verifică/completează datele în caseta de text de mai jos.")
             
@@ -119,7 +127,7 @@ if uploaded_file is not None:
 text_bilet = st.text_area(
     "Text formatat automat (verifică datele extrase):",
     value=text_initial if text_initial else "LASK Linz - Liverpool | 2-5 | 1.34\nFeyenoord Rotterdam - Como | 2-5 | 1.34",
-    height=240
+    height=220
 )
 
 col_miza, col_btn = st.columns([1, 2])
@@ -205,6 +213,40 @@ if st.session_state.bilet_automat:
     else:
         st.error(f"🟥 **Verdict: Tip 'Bombă' (Risc Maxim).** Probabilitate mică de **{procent_final}%**.")
 
+    # --- METODA 1: GENERARE LINK DIRECT SUPERBET ---
+    st.write("---")
+    st.markdown("### 🎟️ Deschide Biletul Direct pe Superbet")
+    
+    cod_input = st.text_input(
+        "Cod bilet Superbet:",
+        value=st.session_state.cod_bilet_detecat if st.session_state.cod_bilet_detecat else "8910-YYHUV7"
+    )
+    
+    if cod_input:
+        cod_curat = cod_input.strip().upper()
+        url_superbet = f"https://superbet.ro/pariurile-mele/deschise?code={cod_curat}"
+        
+        st.markdown(
+            f'''
+            <a href="{url_superbet}" target="_blank" style="text-decoration: none;">
+                <button style="
+                    background-color: #E50914;
+                    color: white;
+                    padding: 14px 20px;
+                    border: none;
+                    border-radius: 8px;
+                    font-size: 16px;
+                    font-weight: bold;
+                    cursor: pointer;
+                    width: 100%;">
+                    🚀 DESCHIDE BILETUL ({cod_curat}) DIRECT ÎN SUPERBET
+                </button>
+            </a>
+            ''',
+            unsafe_allow_html=True
+        )
+
+    # --- EXPORT EXCEL ---
     buffer = io.BytesIO()
     with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
         df_afisare.drop(columns=["prob_num"]).to_excel(writer, index=False, sheet_name='Analiza Procente')
