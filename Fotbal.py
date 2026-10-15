@@ -3,12 +3,12 @@ import pandas as pd
 import requests
 from datetime import datetime
 import pytz
+import io
 
 def preia_toate_meciurile_lumii():
     """
     Descarcă automat meciurile și cotele reale din cele 11 ligi selectate.
     """
-    # 🔴 Cheia ta API salvată corect:
     API_KEY = "2429b4002790df20061f98437e5c97b2"
     
     ligi_configurate = [
@@ -17,7 +17,6 @@ def preia_toate_meciurile_lumii():
         {"id": "soccer_epl", "nume": "EPL"},
         {"id": "soccer_italy_serie_a", "nume": "Serie A - Italy"},
         {"id": "soccer_spain_la_liga", "nume": "La Liga - Spain"},
-        
     ]
     
     lista_meciuri = []
@@ -47,7 +46,7 @@ def preia_toate_meciurile_lumii():
                             except Exception:
                                 pass
 
-                        # Culegere cote - CORECTAT AICI!
+                        # Culegere cote
                         c1, cX, c2 = 2.00, 3.20, 3.00
                         if meci.get('bookmakers'):
                             piete = meci['bookmakers'][0].get('markets', [])
@@ -141,6 +140,20 @@ if meciuri:
     st.subheader("📋 Panou General - Alege varianta care ți se potrivește:")
     st.dataframe(df, use_container_width=True, hide_index=True)
     
+    # --- GENERARE FIȘIER EXCEL PENTRU DESCĂRCARE ---
+    buffer = io.BytesIO()
+    with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Meciuri Analizate')
+    excel_data = buffer.getvalue()
+
+    st.download_button(
+        label="🟢 EXPORTĂ LISTA ÎN EXCEL (.xlsx)",
+        data=excel_data,
+        file_name=f"Analiza_Meciuri_{data_curenta}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True
+    )
+
     # --- SECȚIUNEA VERDE DE JOS ---
     st.write("---")
     st.subheader("🔥 RECOMANDĂRI AUTOMATE BILET (Filtru Verde - Siguranță Maximă):")
