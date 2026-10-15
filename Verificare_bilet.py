@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import urllib.parse
+import re
 
 st.set_page_config(page_title="Verificator & Creator Bilet", layout="wide", page_icon="🎫")
 
@@ -136,10 +137,9 @@ if st.session_state.rezultat_calcul:
     st.write("")
     # 2. Încărcare cod bilet generat direct de Superbet
     st.markdown("**2. Dacă ai deja un cod de bilet valid creat în Superbet:**")
-    cod_bilet = st.text_input("Introdu codul de bilet (fără spații):", value="", placeholder="ex: 8910-YYHUV7")
+    cod_bilet = st.text_input("Introdu codul de bilet (fără spații):", value="", placeholder="ex: 991S-WLYT7C")
     
     if cod_bilet:
-        # Curățăm caracterele și spațiile din cod
         cod_clean = re.sub(r"\s+", "", cod_bilet).strip().upper()
         url_superbet = f"https://superbet.ro/pariurile-mele/deschise?code={cod_clean}"
         
