@@ -5,12 +5,17 @@ st.set_page_config(page_title="Calculator Cota Corectă & Valoare", page_icon="�
 
 st.title("⚖️ Calculator Medie Cote & Valoare Reală (Fair Odds)")
 st.markdown("""
-Acest calculator elimină **marja casei de pariuri (Overround-ul)** pentru a afla probabilitate reală 
+Acest calculator elimină **marja casei de pariuri (Overround-ul)** pentru a afla probabilitatea reală 
 și îți arată dacă o cotă oferită are valoare sau este subevaluată.
 """)
 st.write("---")
 
-tab_1x2, tab_gg = st.tabs(["⚽ Piața 1X2 (Rezultat Final)", "🥅 Piața GG / NG (Ambele Marchează)"])
+# Tab-uri pentru piețele principale
+tab_1x2, tab_gg, tab_goals = st.tabs([
+    "⚽ Piața 1X2 (Rezultat Final)", 
+    "🥅 Piața GG / NG (Ambele Marchează)", 
+    "⚽ Piața Peste / Sub 2.5 Goluri"
+])
 
 # --- TAB 1: PIAȚA 1X2 ---
 with tab_1x2:
@@ -56,7 +61,6 @@ with tab_1x2:
         })
         st.dataframe(df_1x2, use_container_width=True)
 
-        # Determină opțiunea cea mai probabilă
         max_prob = max(p1_real, pX_real, p2_real)
         if max_prob == p1_real:
             fav = f"1 (Gazde) cu o șansă de {p1_real:.2f}%"
@@ -118,4 +122,52 @@ with tab_gg:
         * Opțiunea cea mai probabilă este **{fav_gg}** cu o șansă de **{prob_fav_gg:.2f}%**.
         * Cota corectă fără marjă pentru GG este **{c_gg_fair:.2f}**.
         * Dacă găsești la o casă de pariuri o cotă mai mare sau egală cu **{c_gg_fair:.2f}**, opțiunea **GG** este un **Value Bet**.
+        """)
+
+# --- TAB 3: PIAȚA PESTE / SUB 2.5 GOLURI ---
+with tab_goals:
+    col_o1, col_o2 = st.columns(2)
+    with col_o1:
+        c_over = st.number_input("Cotă Peste 2.5 Goluri:", min_value=1.01, value=1.80, step=0.01, key="c_over")
+    with col_o2:
+        c_under = st.number_input("Cotă Sub 2.5 Goluri:", min_value=1.01, value=2.00, step=0.01, key="c_under")
+
+    if st.button("🧮 CALCULEAZĂ PENTRU PESTE / SUB 2.5 GOLURI", use_container_width=True):
+        p_over_brut = (1 / c_over) * 100
+        p_under_brut = (1 / c_under) * 100
+        
+        suma_goals = p_over_brut + p_under_brut
+        marja_goals = suma_goals - 100
+        
+        p_over_real = (p_over_brut / suma_goals) * 100
+        p_under_real = (p_under_brut / suma_goals) * 100
+        
+        c_over_fair = 100 / p_over_real
+        c_under_fair = 100 / p_under_real
+
+        st.write("---")
+        co1, co2 = st.columns(2)
+        co1.metric("Suma Probabilităților", f"{suma_goals:.2f}%")
+        co2.metric("Marja Casei pe Goluri", f"{marja_goals:.2f}%")
+        
+        df_goals = pd.DataFrame({
+            "Opțiune": ["Peste 2.5 Goluri", "Sub 2.5 Goluri"],
+            "Cotă Afișată": [f"{c_over:.2f}", f"{c_under:.2f}"],
+            "Probabilitate Reală": [f"{p_over_real:.2f}%", f"{p_under_real:.2f}%"],
+            "Cotă Corectă (Fără Marjă)": [f"{c_over_fair:.2f}", f"{c_under_fair:.2f}"],
+            "Diferență / Valoare": [
+                "🟩 Valoare" if c_over >= c_over_fair else "🟥 Sub evaluată",
+                "🟩 Valoare" if c_under >= c_under_fair else "🟥 Sub evaluată"
+            ]
+        })
+        st.dataframe(df_goals, use_container_width=True)
+
+        fav_goals = "Peste 2.5 Goluri (Meci cu multe goluri)" if p_over_real > p_under_real else "Sub 2.5 Goluri (Meci strâns/puține goluri)"
+        prob_fav_goals = max(p_over_real, p_under_real)
+
+        st.info(f"""
+        💡 **Interpretare Peste / Sub 2.5 Goluri:**
+        * Opțiunea cea mai probabilă este **{fav_goals}** cu o șansă de **{prob_fav_goals:.2f}%**.
+        * Cota corectă fără marjă pentru Peste 2.5 este **{c_over_fair:.2f}** (iar pentru Sub 2.5 este **{c_under_fair:.2f}**).
+        * Dacă găsești la o casă de pariuri o cotă mai mare sau egală cu cota corectă calculată, opțiunea respectivă devine un **Value Bet**.
         """)
