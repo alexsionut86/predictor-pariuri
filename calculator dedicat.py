@@ -10,18 +10,17 @@ Acest calculator elimină **marja casei de pariuri (Overround-ul)** pentru a afl
 """)
 st.write("---")
 
-# Tab-uri pentru cele două piețe principale
 tab_1x2, tab_gg = st.tabs(["⚽ Piața 1X2 (Rezultat Final)", "🥅 Piața GG / NG (Ambele Marchează)"])
 
 # --- TAB 1: PIAȚA 1X2 ---
 with tab_1x2:
     col_in1, col_in2, col_in3 = st.columns(3)
     with col_in1:
-        c1 = st.number_input("Cotă 1 (Gazde):", min_value=1.01, value=1.65, step=0.01, key="c1_1x2")
+        c1 = st.number_input("Cotă 1 (Gazde):", min_value=1.01, value=1.87, step=0.01, key="c1_1x2")
     with col_in2:
-        cX = st.number_input("Cotă X (Egal):", min_value=1.01, value=3.75, step=0.01, key="cx_1x2")
+        cX = st.number_input("Cotă X (Egal):", min_value=1.01, value=4.40, step=0.01, key="cx_1x2")
     with col_in3:
-        c2 = st.number_input("Cotă 2 (Oaspeți):", min_value=1.01, value=5.25, step=0.01, key="c2_1x2")
+        c2 = st.number_input("Cotă 2 (Oaspeți):", min_value=1.01, value=3.85, step=0.01, key="c2_1x2")
 
     if st.button("🧮 CALCULEAZĂ PENTRU 1X2", use_container_width=True):
         p1_brut = (1 / c1) * 100
@@ -57,18 +56,31 @@ with tab_1x2:
         })
         st.dataframe(df_1x2, use_container_width=True)
 
+        # Determină opțiunea cea mai probabilă
+        max_prob = max(p1_real, pX_real, p2_real)
+        if max_prob == p1_real:
+            fav = f"1 (Gazde) cu o șansă de {p1_real:.2f}%"
+        elif max_prob == p2_real:
+            fav = f"2 (Oaspeți) cu o șansă de {p2_real:.2f}%"
+        else:
+            fav = f"X (Egal) cu o șansă de {pX_real:.2f}%"
+
+        st.info(f"""
+        💡 **Interpretare 1X2:**
+        * Opțiunea cea mai probabilă este **{fav}**.
+        * Cota corectă fără marjă pentru 1 este **{c1_fair:.2f}** (făță de {c1:.2f} oferită).
+        * Dacă găsești la altă casă o cotă mai mare sau egală cu cota corectă calculată, opțiunea respectivă are **Valoare**.
+        """)
+
 # --- TAB 2: PIAȚA GG / NG ---
 with tab_gg:
-    st.markdown("### 🥅 Analiză Cota Ambele Marchează (GG vs NG)")
-    
     col_gg1, col_gg2 = st.columns(2)
     with col_gg1:
-        c_gg = st.number_input("Cotă GG (Ambele marchează - DA):", min_value=1.01, value=1.85, step=0.01, key="c_gg")
+        c_gg = st.number_input("Cotă GG (Ambele marchează - DA):", min_value=1.01, value=1.76, step=0.01, key="c_gg")
     with col_gg2:
-        c_ng = st.number_input("Cotă NG (Nu marchează ambele - NU):", min_value=1.01, value=1.95, step=0.01, key="c_ng")
+        c_ng = st.number_input("Cotă NG (Nu marchează ambele - NU):", min_value=1.01, value=2.05, step=0.01, key="c_ng")
 
     if st.button("🧮 CALCULEAZĂ PENTRU GG / NG", use_container_width=True):
-        # Calcul probabilități binar (2 opțiuni)
         p_gg_brut = (1 / c_gg) * 100
         p_ng_brut = (1 / c_ng) * 100
         
@@ -98,9 +110,12 @@ with tab_gg:
         })
         st.dataframe(df_gg, use_container_width=True)
 
+        fav_gg = "GG (Ambele Marchează)" if p_gg_real > p_ng_real else "NG (Nu Marchează Ambele)"
+        prob_fav_gg = max(p_gg_real, p_ng_real)
+
         st.info(f"""
-        💡 **Interpretare GG:**
-        * Șansa matematică reală ca **ambele echipe să marcheze (GG)** este de **{p_gg_real:.2f}%**.
-        * Cota corectă fără marjă este **{c_gg_fair:.2f}**.
+        💡 **Interpretare GG / NG:**
+        * Opțiunea cea mai probabilă este **{fav_gg}** cu o șansă de **{prob_fav_gg:.2f}%**.
+        * Cota corectă fără marjă pentru GG este **{c_gg_fair:.2f}**.
         * Dacă găsești la o casă de pariuri o cotă mai mare sau egală cu **{c_gg_fair:.2f}**, opțiunea **GG** este un **Value Bet**.
         """)
