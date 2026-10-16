@@ -4,3 +4,4 @@ pytz
 openpyxl
 pypdf
 pdfplumber
+plyer
