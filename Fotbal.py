@@ -12,11 +12,8 @@ def preia_toate_meciurile_lumii():
     API_KEY = "2429b4002790df20061f98437e5c97b2"
     
     ligi_configurate = [
-        {"id": "soccer_france_ligue_one", "nume": "Ligue 1 - France"},
-        {"id": "soccer_germany_bundesliga", "nume": "Bundesliga - Germany"},
-        {"id": "soccer_epl", "nume": "EPL"},
-        {"id": "soccer_italy_serie_a", "nume": "Serie A - Italy"},
-        {"id": "soccer_spain_la_liga", "nume": "La Liga - Spain"},
+        {"id": "soccer_uefa_champs_league", "nume": "UEFA Champions League"},
+        
     ]
     
     lista_meciuri = []
